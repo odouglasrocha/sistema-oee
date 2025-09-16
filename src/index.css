@@ -1,0 +1,311 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Industrial OEE Design System - Professional Manufacturing Dashboard
+All colors MUST be HSL. Inspired by industrial control systems.
+*/
+
+@layer base {
+  :root {
+    /* Base Industrial Colors */
+    --background: 220 15% 97%;
+    --foreground: 220 30% 12%;
+
+    /* Cards and Surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 12%;
+    --card-industrial: 220 25% 98%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 12%;
+
+    /* Industrial Blue Primary */
+    --primary: 214 78% 35%;
+    --primary-foreground: 0 0% 98%;
+    --primary-light: 214 65% 45%;
+    --primary-dark: 214 88% 25%;
+
+    /* Industrial Secondary */
+    --secondary: 220 15% 92%;
+    --secondary-foreground: 220 30% 20%;
+    --secondary-dark: 220 20% 85%;
+
+    /* Neutral Industrial */
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 15% 45%;
+    --muted-dark: 220 20% 88%;
+
+    /* Accent - Industrial Orange */
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 98%;
+    --accent-light: 25 85% 63%;
+
+    /* Status Colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+    --success-light: 142 60% 45%;
+    
+    --warning: 45 93% 47%;
+    --warning-foreground: 45 20% 10%;
+    --warning-light: 45 85% 57%;
+    
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --error: 0 75% 55%;
+
+    /* OEE Specific Colors */
+    --oee-excellent: 142 76% 36%;   /* >= 85% */
+    --oee-good: 60 85% 45%;         /* 65-84% */
+    --oee-fair: 45 93% 47%;         /* 50-64% */
+    --oee-poor: 0 85% 60%;          /* < 50% */
+    
+    --availability: 214 78% 45%;
+    --performance: 25 95% 53%;  
+    --quality: 142 76% 36%;
+
+    /* Borders and Inputs */
+    --border: 220 15% 88%;
+    --input: 220 15% 96%;
+    --ring: 214 78% 35%;
+    --border-strong: 220 25% 75%;
+
+    /* Industrial Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(214 78% 35%) 0%, hsl(214 88% 25%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(25 95% 53%) 0%, hsl(25 85% 43%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(142 66% 26%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(45 93% 47%) 0%, hsl(45 83% 37%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(220 25% 98%) 0%, hsl(220 15% 96%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(220 25% 98%) 100%);
+
+    /* Shadows - Industrial depth */
+    --shadow-sm: 0 1px 2px 0 hsl(220 30% 12% / 0.05);
+    --shadow: 0 4px 6px -1px hsl(220 30% 12% / 0.1), 0 2px 4px -1px hsl(220 30% 12% / 0.06);
+    --shadow-md: 0 10px 15px -3px hsl(220 30% 12% / 0.1), 0 4px 6px -2px hsl(220 30% 12% / 0.05);
+    --shadow-lg: 0 20px 25px -5px hsl(220 30% 12% / 0.1), 0 10px 10px -5px hsl(220 30% 12% / 0.04);
+    --shadow-industrial: 0 8px 32px hsl(214 78% 35% / 0.12);
+    --shadow-glow: 0 0 20px hsl(214 78% 35% / 0.15);
+
+    /* Animation Variables */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-fast: all 0.15s ease-out;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark Industrial Theme */
+    --background: 220 25% 8%;
+    --foreground: 220 15% 95%;
+
+    --card: 220 25% 10%;
+    --card-foreground: 220 15% 95%;
+    --card-industrial: 220 30% 12%;
+
+    --popover: 220 25% 10%;
+    --popover-foreground: 220 15% 95%;
+
+    --primary: 214 85% 55%;
+    --primary-foreground: 220 25% 8%;
+    --primary-light: 214 75% 65%;
+    --primary-dark: 214 95% 45%;
+
+    --secondary: 220 25% 15%;
+    --secondary-foreground: 220 15% 85%;
+    --secondary-dark: 220 30% 12%;
+
+    --muted: 220 25% 12%;
+    --muted-foreground: 220 15% 65%;
+    --muted-dark: 220 30% 10%;
+
+    --accent: 25 95% 58%;
+    --accent-foreground: 220 25% 8%;
+    --accent-light: 25 85% 68%;
+
+    --success: 142 85% 45%;
+    --success-foreground: 220 25% 8%;
+    --success-light: 142 75% 55%;
+    
+    --warning: 45 95% 55%;
+    --warning-foreground: 45 20% 10%;
+    --warning-light: 45 85% 65%;
+    
+    --destructive: 0 85% 65%;
+    --destructive-foreground: 220 25% 8%;
+    --error: 0 75% 60%;
+
+    --oee-excellent: 142 85% 45%;
+    --oee-good: 60 85% 55%;
+    --oee-fair: 45 95% 55%;
+    --oee-poor: 0 85% 65%;
+    
+    --availability: 214 85% 55%;
+    --performance: 25 95% 58%;
+    --quality: 142 85% 45%;
+
+    --border: 220 25% 18%;
+    --input: 220 25% 15%;
+    --ring: 214 85% 55%;
+    --border-strong: 220 30% 25%;
+
+    /* Dark Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(214 85% 55%) 0%, hsl(214 95% 45%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(25 95% 58%) 0%, hsl(25 85% 48%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 85% 45%) 0%, hsl(142 75% 35%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(45 95% 55%) 0%, hsl(45 85% 45%) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(220 30% 12%) 0%, hsl(220 25% 10%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(220 25% 10%) 0%, hsl(220 30% 12%) 100%);
+
+    --shadow-industrial: 0 8px 32px hsl(220 30% 5% / 0.3);
+    --shadow-glow: 0 0 20px hsl(214 85% 55% / 0.2);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  /* Form Label Alignment Fix */
+  label {
+    display: block;
+    text-align: left;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: hsl(var(--foreground));
+  }
+
+  /* Form Container Alignment */
+  .space-y-2 {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .space-y-2 > * + * {
+    margin-top: 0.5rem;
+  }
+}
+
+/* Industrial Component Styles */
+@layer components {
+  /* OEE Status Indicators */
+  .oee-excellent { @apply text-[hsl(var(--oee-excellent))] bg-[hsl(var(--oee-excellent)/0.1)] border-[hsl(var(--oee-excellent)/0.2)]; }
+  .oee-good { @apply text-[hsl(var(--oee-good))] bg-[hsl(var(--oee-good)/0.1)] border-[hsl(var(--oee-good)/0.2)]; }
+  .oee-fair { @apply text-[hsl(var(--oee-fair))] bg-[hsl(var(--oee-fair)/0.1)] border-[hsl(var(--oee-fair)/0.2)]; }
+  .oee-poor { @apply text-[hsl(var(--oee-poor))] bg-[hsl(var(--oee-poor)/0.1)] border-[hsl(var(--oee-poor)/0.2)]; }
+
+  /* Industrial Card Effects */
+  .card-industrial {
+    @apply bg-[hsl(var(--card-industrial))] shadow-[var(--shadow)] border border-border;
+    background: var(--gradient-card);
+  }
+
+  /* Status Pulse Animation */
+  .status-pulse {
+    animation: pulse-industrial 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Metric Cards */
+  .metric-card {
+    @apply relative overflow-hidden rounded-lg border bg-card p-6 shadow-md transition-all duration-300 hover:shadow-lg;
+  }
+  
+  .metric-card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-transparent to-black/5 pointer-events-none;
+  }
+
+  /* Industrial Buttons */
+  .btn-industrial {
+    @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm;
+    background: var(--gradient-primary);
+    color: hsl(var(--primary-foreground));
+  }
+  
+  .btn-industrial:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-industrial);
+  }
+
+  /* Data Visualizations */
+  .chart-container {
+    @apply relative p-4 bg-card rounded-lg border shadow-sm;
+    background: var(--gradient-surface);
+  }
+
+  /* Production Line Indicators */
+  .production-line {
+    @apply flex items-center gap-2 p-3 rounded-lg border transition-colors duration-200;
+  }
+  
+  .production-active { @apply bg-[hsl(var(--success)/0.1)] border-[hsl(var(--success)/0.3)]; }
+  .production-warning { @apply bg-[hsl(var(--warning)/0.1)] border-[hsl(var(--warning)/0.3)]; }
+  .production-stopped { @apply bg-[hsl(var(--destructive)/0.1)] border-[hsl(var(--destructive)/0.3)]; }
+}
+
+/* Industrial Animations */
+@layer utilities {
+  @keyframes pulse-industrial {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+  }
+  
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .animate-slide-up { animation: slide-up 0.5s ease-out; }
+  .animate-shimmer { animation: shimmer 2s infinite; }
+  
+  /* Hover Effects */
+  .hover-lift { @apply transition-transform duration-200 hover:-translate-y-1; }
+  .hover-glow { @apply transition-shadow duration-300 hover:shadow-[var(--shadow-glow)]; }
+  
+  /* Interactive Elements */
+  .interactive-scale { @apply transition-transform duration-150 active:scale-95; }
+  .smooth-transition { transition: var(--transition-smooth); }
+  
+  /* Glass Effect for Modern Cards */
+  .glass-effect {
+    backdrop-filter: blur(10px);
+    @apply bg-white/10 border-white/20;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
