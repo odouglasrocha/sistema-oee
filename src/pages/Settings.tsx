@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { settingsService, SystemSettings } from '@/services/settingsService';
 import {
   Settings as SettingsIcon,
   Bell,
@@ -29,8 +30,10 @@ import {
 const Settings = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
   
-  // Estados para as configurações
+  // Estados para as configurações (derivados dos dados do backend)
   const [systemSettings, setSystemSettings] = useState({
     companyName: 'Indústria OEE Monitor',
     timezone: 'America/Sao_Paulo',
@@ -67,26 +70,132 @@ const Settings = () => {
     webhooks: false
   });
 
+  // Carregar configurações do backend
+  const loadSettings = async () => {
+    try {
+      setIsLoadingData(true);
+      const data = await settingsService.getSettings();
+      setSettings(data);
+      
+      // Atualizar estados locais com dados do backend
+      setSystemSettings({
+        companyName: data.companyName,
+        timezone: data.timezone,
+        language: data.language,
+        theme: data.theme,
+        autoRefresh: data.autoRefresh,
+        refreshInterval: data.refreshInterval
+      });
+      
+      setAlertSettings(data.alertSettings);
+      setSecuritySettings(data.securitySettings);
+      setIntegrationSettings(data.integrationSettings);
+      
+    } catch (error) {
+      console.error('Erro ao carregar configurações:', error);
+      toast({
+        title: "Erro ao carregar configurações",
+        description: "Não foi possível carregar as configurações do sistema.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+  
+  // Carregar configurações ao montar o componente
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
   const handleSaveSettings = async (section: string) => {
     setIsLoading(true);
     try {
-      // Simular salvamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      let updatedSettings: SystemSettings;
+      
+      switch (section) {
+        case 'sistema':
+          updatedSettings = await settingsService.updateSystemSettings(systemSettings);
+          break;
+        case 'alertas':
+          updatedSettings = await settingsService.updateAlertSettings(alertSettings);
+          break;
+        case 'segurança':
+          updatedSettings = await settingsService.updateSecuritySettings(securitySettings);
+          break;
+        case 'integrações':
+          updatedSettings = await settingsService.updateIntegrationSettings(integrationSettings);
+          break;
+        default:
+          throw new Error('Seção inválida');
+      }
+      
+      setSettings(updatedSettings);
       
       toast({
         title: "Configurações salvas",
         description: `As configurações de ${section} foram atualizadas com sucesso.`,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Erro ao salvar configurações:', error);
       toast({
         title: "Erro ao salvar",
-        description: "Ocorreu um erro ao salvar as configurações.",
+        description: error.message || "Ocorreu um erro ao salvar as configurações.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
+  
+  // Função para resetar configurações
+  const handleResetSettings = async () => {
+    setIsLoading(true);
+    try {
+      const defaultSettings = await settingsService.resetSettings();
+      setSettings(defaultSettings);
+      
+      // Atualizar estados locais
+      setSystemSettings({
+        companyName: defaultSettings.companyName,
+        timezone: defaultSettings.timezone,
+        language: defaultSettings.language,
+        theme: defaultSettings.theme,
+        autoRefresh: defaultSettings.autoRefresh,
+        refreshInterval: defaultSettings.refreshInterval
+      });
+      
+      setAlertSettings(defaultSettings.alertSettings);
+      setSecuritySettings(defaultSettings.securitySettings);
+      setIntegrationSettings(defaultSettings.integrationSettings);
+      
+      toast({
+        title: "Configurações resetadas",
+        description: "As configurações foram resetadas para os valores padrão.",
+      });
+    } catch (error: any) {
+      console.error('Erro ao resetar configurações:', error);
+      toast({
+        title: "Erro ao resetar",
+        description: error.message || "Ocorreu um erro ao resetar as configurações.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Mostrar loading enquanto carrega dados
+  if (isLoadingData) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 animate-spin" />
+          <span>Carregando configurações...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -109,6 +218,12 @@ const Settings = () => {
             <CheckCircle className="w-3 h-3 mr-1" />
             Sistema Online
           </Badge>
+          {settings?.updatedAt && (
+            <Badge variant="outline">
+              <Clock className="w-3 h-3 mr-1" />
+              Atualizado: {new Date(settings.updatedAt).toLocaleString('pt-BR')}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -234,7 +349,16 @@ const Settings = () => {
             </Card>
           </div>
           
-          <div className="flex justify-end">
+          <div className="flex justify-between">
+            <Button 
+              variant="outline" 
+              onClick={handleResetSettings} 
+              disabled={isLoading}
+              className="text-destructive hover:text-destructive"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Resetar Padrão
+            </Button>
             <Button onClick={() => handleSaveSettings('sistema')} disabled={isLoading}>
               {isLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar Configurações
@@ -453,13 +577,19 @@ const Settings = () => {
                     <div className="flex items-center justify-between text-sm">
                       <span>Última verificação:</span>
                       <Badge variant="outline" className="text-success border-success/20">
-                        Hoje, 14:30
+                        {settings?.updatedAt ? new Date(settings.updatedAt).toLocaleDateString('pt-BR') : 'Nunca'}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span>Tentativas de login falhadas:</span>
-                      <Badge variant="outline">
-                        0 nas últimas 24h
+                      <span>2FA Ativo:</span>
+                      <Badge variant={securitySettings.twoFactorAuth ? "default" : "outline"}>
+                        {securitySettings.twoFactorAuth ? 'Sim' : 'Não'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Auditoria:</span>
+                      <Badge variant={securitySettings.auditLog ? "default" : "outline"}>
+                        {securitySettings.auditLog ? 'Ativa' : 'Inativa'}
                       </Badge>
                     </div>
                   </div>
@@ -556,15 +686,21 @@ const Settings = () => {
                   <h4 className="font-medium mb-2">Status das Integrações</h4>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span>Sensores conectados:</span>
-                      <Badge variant="outline" className="text-success border-success/20">
-                        12 ativos
+                      <span>Sensores IoT:</span>
+                      <Badge variant={integrationSettings.iotSensors ? "default" : "outline"}>
+                        {integrationSettings.iotSensors ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span>Última sincronização:</span>
-                      <Badge variant="outline">
-                        2 min atrás
+                      <span>API Externa:</span>
+                      <Badge variant={integrationSettings.apiAccess ? "default" : "outline"}>
+                        {integrationSettings.apiAccess ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Webhooks:</span>
+                      <Badge variant={integrationSettings.webhooks ? "default" : "outline"}>
+                        {integrationSettings.webhooks ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </div>
                   </div>

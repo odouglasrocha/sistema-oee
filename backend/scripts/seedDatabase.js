@@ -67,6 +67,8 @@ const rolesData = [
       'settings.security',
       'settings.integrations',
       'settings.alerts',
+      'manage_settings',
+      'view_audit',
       
       // Sistema
       'system.audit_log',

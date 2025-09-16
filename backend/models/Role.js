@@ -78,6 +78,8 @@ const roleSchema = new mongoose.Schema({
         'settings.security',
         'settings.integrations',
         'settings.alerts',
+        'manage_settings',
+        'view_audit',
         
         // Permissões de Sistema
         'system.audit_log',

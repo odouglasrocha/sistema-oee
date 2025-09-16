@@ -224,7 +224,7 @@ productionRecordSchema.index({ operator: 1, date: -1 });
 productionRecordSchema.index({ 'material.code': 1 });
 productionRecordSchema.index({ createdAt: -1 });
 productionRecordSchema.index({ status: 1 });
-productionRecordSchema.index({ date: -1, shift: 1, machine: 1 }, { unique: true }); // Evita registros duplicados
+productionRecordSchema.index({ date: -1, shift: 1, machine: 1 }, { unique: true }); // Evita registros duplicados para mesmo turno/máquina/data
 
 // Virtual para duração total do turno
 productionRecordSchema.virtual('duration').get(function() {

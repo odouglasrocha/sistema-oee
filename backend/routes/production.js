@@ -161,11 +161,14 @@ router.post('/', authenticateToken, async (req, res) => {
     const finalShift = shift || detectedShift;
 
     // Verificar se já existe registro para a mesma máquina, data e turno
+    const startOfDay = new Date(new Date(startDateTime).setHours(0, 0, 0, 0));
+    const endOfDay = new Date(new Date(startDateTime).setHours(23, 59, 59, 999));
+    
     const existingRecord = await ProductionRecord.findOne({
       machine: machineId,
       date: {
-        $gte: new Date(new Date(startDateTime).setHours(0, 0, 0, 0)),
-        $lt: new Date(new Date(startDateTime).setHours(23, 59, 59, 999))
+        $gte: startOfDay,
+        $lt: endOfDay
       },
       shift: finalShift
     });
@@ -175,6 +178,23 @@ router.post('/', authenticateToken, async (req, res) => {
         success: false,
         message: `Já existe um registro para esta máquina no turno ${finalShift === 'morning' ? 'Manhã' : finalShift === 'afternoon' ? 'Tarde' : 'Noite'} desta data. Para editar o registro existente, acesse a lista de registros de produção.`,
         existingRecordId: existingRecord._id
+      });
+    }
+    
+    // Verificar quantos registros já existem para esta máquina hoje
+    const todayRecordsCount = await ProductionRecord.countDocuments({
+      machine: machineId,
+      date: {
+        $gte: startOfDay,
+        $lt: endOfDay
+      }
+    });
+    
+    // Permitir no máximo 3 registros por máquina por dia (manhã, tarde, noite)
+    if (todayRecordsCount >= 3) {
+      return res.status(409).json({
+        success: false,
+        message: 'Esta máquina já possui registros para todos os turnos (Manhã, Tarde e Noite) desta data. Para adicionar mais registros, escolha outra data ou edite um registro existente.'
       });
     }
 

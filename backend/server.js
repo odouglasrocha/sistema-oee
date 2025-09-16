@@ -16,6 +16,7 @@ const machineRoutes = require('./routes/machines');
 const productionRoutes = require('./routes/production');
 const analyticsRoutes = require('./routes/analytics');
 const dashboardRoutes = require('./routes/dashboard');
+const settingsRoutes = require('./routes/settings');
 
 // Importar middleware de autenticação
 const { authenticateToken } = require('./middleware/auth');
@@ -123,11 +124,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/machines', machineRoutes); // Rota pública para consulta
 app.use('/api/dashboard', dashboardRoutes); // Rota pública para dashboard OEE
 
-// Rotas protegidas
+// Rotas protegidas (requerem autenticação)
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/machines-admin', authenticateToken, machineRoutes); // Gestão de máquinas protegida
 app.use('/api/production', authenticateToken, productionRoutes); // Rotas de produção
 app.use('/api/analytics', analyticsRoutes); // Rotas de analytics (já tem autenticação interna)
+app.use('/api/settings', settingsRoutes); // Rotas de configurações (já tem autenticação interna)
 app.use('/api/protected', authenticateToken, protectedRoutes);
 
 // Rota de health check

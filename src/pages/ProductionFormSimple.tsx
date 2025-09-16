@@ -153,7 +153,7 @@ const ProductionFormSimple: React.FC<ProductionFormSimpleProps> = ({
     setIsSubmittingForm(true);
     
     try {
-      const response = await apiRequest('/production', {
+      const data = await apiRequest('/production', {
         method: 'POST',
         body: JSON.stringify({
           machineId: formData.machineId,
@@ -173,8 +173,6 @@ const ProductionFormSimple: React.FC<ProductionFormSimpleProps> = ({
           notes: formData.notes
         })
       });
-      
-      const data = await response.json();
       
       if (data.success) {
         toast({
@@ -210,20 +208,11 @@ const ProductionFormSimple: React.FC<ProductionFormSimpleProps> = ({
           onSuccess();
         }
       } else {
-        // Tratamento especial para erro 409 (registro duplicado)
-        if (response.status === 409) {
-          toast({
-            title: "Registro Duplicado",
-            description: data.message || "Já existe um registro para esta máquina e turno",
-            variant: "destructive"
-          });
-        } else {
-          toast({
-            title: "Erro",
-            description: data.message || "Erro ao criar registro de produção",
-            variant: "destructive"
-          });
-        }
+        toast({
+          title: "Erro",
+          description: data.message || "Erro ao criar registro de produção",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Erro ao enviar registro:', error);

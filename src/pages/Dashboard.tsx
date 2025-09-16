@@ -281,39 +281,39 @@ const Dashboard: React.FC = () => {
                 return (
                   <div
                     key={machine.id}
-                    className="production-line p-4 rounded-lg border transition-colors hover:shadow-md cursor-pointer"
+                    className="p-3 rounded-lg border transition-colors hover:shadow-sm cursor-pointer bg-white"
                     onClick={() => handleViewDetails(machine.id)}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div>
                         <h4 className="font-medium text-sm">{machine.name}</h4>
-                        <p className="text-xs text-muted-foreground">{machine.code}</p>
+                        <p className="text-xs text-gray-500">{machine.code}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="outline"
-                          className={`text-xs`}
+                          className="text-xs"
                           style={{ borderColor: status.color, color: status.color }}
                         >
                           {machine.oee.toFixed(1)}%
                         </Badge>
-                        <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: machine.status === 'inactive' ? '#6b7280' : status.color }} />
+                        <div 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: machine.status === 'inactive' ? '#6b7280' : status.color }} 
+                        />
                       </div>
                     </div>
                     
-                    <Progress 
-                      value={machine.oee} 
-                      className="h-2 mb-2"
-                    />
+                    <Progress value={machine.oee} className="h-1.5 mb-2" />
                     
-                    <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-                      <div>D: {machine.availability.toFixed(0)}%</div>
-                      <div>P: {machine.performance.toFixed(0)}%</div>
-                      <div>Q: {machine.quality.toFixed(0)}%</div>
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>D: {machine.availability.toFixed(0)}%</span>
+                      <span>P: {machine.performance.toFixed(0)}%</span>
+                      <span>Q: {machine.quality.toFixed(0)}%</span>
                     </div>
                     
-                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-                      <span>{machine.location.plant} - {machine.location.area}</span>
+                    <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
+                      <span>{machine.location.plant}</span>
                       <span>{machine.lastUpdate ? new Date(machine.lastUpdate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</span>
                     </div>
                   </div>
