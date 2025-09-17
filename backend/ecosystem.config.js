@@ -1,23 +1,23 @@
 module.exports = {
   apps: [{
-    name: 'oee-monitor-api',
+    name: 'sistema-oee-backend',
     script: 'server.js',
-    cwd: '/var/www/planing-ita/backend',
+    cwd: '/var/www/sistema-oee/backend',
     
     // Configurações de produção
     env: {
       NODE_ENV: 'development',
-      PORT: 3001
+      PORT: 5000
     },
     
     env_production: {
       NODE_ENV: 'production',
-      PORT: 3001
+      PORT: 5000
     },
     
     // Configurações do processo
-    instances: 'max', // Usar todos os cores disponíveis
-    exec_mode: 'cluster',
+    instances: 1, // Usar 1 instância para evitar problemas com MongoDB
+    exec_mode: 'fork',
     
     // Configurações de restart
     autorestart: true,
@@ -25,9 +25,9 @@ module.exports = {
     max_memory_restart: '1G',
     
     // Configurações de logs
-    log_file: '/var/www/planing-ita/logs/combined.log',
-    out_file: '/var/www/planing-ita/logs/out.log',
-    error_file: '/var/www/planing-ita/logs/error.log',
+    log_file: '/var/log/pm2/sistema-oee-combined.log',
+    out_file: '/var/log/pm2/sistema-oee-out.log',
+    error_file: '/var/log/pm2/sistema-oee-error.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     
     // Configurações de monitoramento
@@ -42,7 +42,7 @@ module.exports = {
     node_args: '--max-old-space-size=1024',
     
     // Configurações de saúde
-    health_check_url: 'http://localhost:3001/api/health',
+    health_check_url: 'http://localhost:5000/api/health',
     health_check_grace_period: 3000
   }],
   
@@ -51,8 +51,8 @@ module.exports = {
       user: 'root',
       host: 'planing-ita.com',
       ref: 'origin/main',
-      repo: 'https://github.com/seu-usuario/oee-monitor.git',
-      path: '/var/www/planing-ita',
+      repo: 'git@github.com:odouglasrocha/sistema-oee.git',
+      path: '/var/www/sistema-oee',
       
       'pre-deploy-local': '',
       'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production',

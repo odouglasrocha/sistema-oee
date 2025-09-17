@@ -67,17 +67,7 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleDemoLogin = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('demo123');
-    setRememberMe(false);
-  };
 
-  const demoAccounts = [
-    { email: 'admin@oee.com', role: 'Administrador', icon: Settings },
-    { email: 'supervisor@oee.com', role: 'Supervisor', icon: BarChart3 },
-    { email: 'operator@oee.com', role: 'Operador', icon: Factory },
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-surface flex">
@@ -193,30 +183,7 @@ const Login: React.FC = () => {
                 </Button>
               </form>
 
-              {/* Demo Accounts */}
-              <div className="mt-8 pt-6 border-t">
-                <p className="text-sm text-muted-foreground mb-4 text-center">
-                  Contas de demonstração:
-                </p>
-                <div className="grid gap-2">
-                  {demoAccounts.map((account) => (
-                    <Button
-                      key={account.email}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDemoLogin(account.email)}
-                      disabled={isLoading}
-                      className="justify-start h-10 hover:bg-muted/50 transition-colors"
-                    >
-                      <account.icon className="w-4 h-4 mr-2" />
-                      <span className="flex-1 text-left">
-                        <span className="font-medium">{account.role}</span>
-                        <span className="text-xs text-muted-foreground block">{account.email}</span>
-                      </span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
+
             </CardContent>
           </Card>
         </div>
