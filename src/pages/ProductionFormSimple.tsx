@@ -52,13 +52,15 @@ interface ProductionFormSimpleProps {
   isSubmitting?: boolean;
   showValidationErrors?: boolean;
   onSuccess?: () => void;
+  editingRecord?: any;
 }
 
 const ProductionFormSimple: React.FC<ProductionFormSimpleProps> = ({ 
   onSubmit, 
   isSubmitting = false, 
   showValidationErrors = false,
-  onSuccess
+  onSuccess,
+  editingRecord
 }) => {
   const { toast } = useToast();
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -140,6 +142,94 @@ const ProductionFormSimple: React.FC<ProductionFormSimpleProps> = ({
     }));
   }, []);
 
+  // Preencher dados quando estiver editando
+  useEffect(() => {
+    console.log('🔄 useEffect executado - editingRecord:', editingRecord);
+    console.log('🔄 Tipo do editingRecord:', typeof editingRecord);
+    console.log('🔄 editingRecord é truthy?', !!editingRecord);
+    
+    if (editingRecord) {
+      console.log('✅ Preenchendo dados para edição:', editingRecord);
+      console.log('📋 Estrutura completa do registro:', JSON.stringify(editingRecord, null, 2));
+      
+      // Converter data e horários
+      const recordDate = new Date(editingRecord.date).toISOString().split('T')[0];
+      
+      // Converter Date objects para formato datetime-local
+      const formatDateTime = (dateTime: string | Date) => {
+        if (!dateTime) return '';
+        const date = new Date(dateTime);
+        if (isNaN(date.getTime())) return '';
+        
+        // Formato: YYYY-MM-DDTHH:MM
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+      
+      const startDateTime = formatDateTime(editingRecord.startTime);
+      const endDateTime = formatDateTime(editingRecord.endTime);
+      
+      console.log('🕐 Horários originais:', {
+        startTime: editingRecord.startTime,
+        endTime: editingRecord.endTime
+      });
+      console.log('🕐 Horários convertidos:', {
+        startDateTime,
+        endDateTime
+      });
+      
+      const newFormData = {
+        machineId: editingRecord.machine?._id || '',
+        shift: editingRecord.shift || 'morning',
+        startDateTime,
+        endDateTime,
+        plannedTime: editingRecord.time?.planned || 480,
+        productCode: editingRecord.material?.code || '',
+        productName: editingRecord.material?.name || '',
+        productDescription: editingRecord.material?.description || '',
+        productionTarget: editingRecord.production?.target || 0,
+        goodProduction: editingRecord.production?.good || 0,
+        filmWaste: editingRecord.production?.waste?.film || 0,
+        organicWaste: editingRecord.production?.waste?.organic || 0,
+        actualTime: editingRecord.time?.actual || 480,
+        downtimeEntries: [], // Será implementado posteriormente
+        notes: editingRecord.notes || ''
+      };
+      
+      console.log('📝 Dados convertidos para o formulário:', newFormData);
+      setFormData(newFormData);
+    } else {
+      // Resetar formulário para novo registro
+      const now = new Date();
+      const currentDateTime = now.toISOString().slice(0, 16);
+      const endTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+      const endDateTime = endTime.toISOString().slice(0, 16);
+      
+      setFormData({
+        machineId: '',
+        shift: detectShift(currentDateTime),
+        startDateTime: currentDateTime,
+        endDateTime: endDateTime,
+        plannedTime: 480,
+        productCode: '',
+        productName: '',
+        productDescription: '',
+        productionTarget: 0,
+        goodProduction: 0,
+        filmWaste: 0,
+        organicWaste: 0,
+        actualTime: 480,
+        downtimeEntries: [],
+        notes: ''
+      });
+    }
+  }, [editingRecord]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -153,8 +243,12 @@ const ProductionFormSimple: React.FC<ProductionFormSimpleProps> = ({
     setIsSubmittingForm(true);
     
     try {
-      const data = await apiRequest('/production', {
-        method: 'POST',
+      const isEditing = !!editingRecord;
+      const endpoint = isEditing ? `/production/${editingRecord._id}` : '/production';
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const data = await apiRequest(endpoint, {
+        method,
         body: JSON.stringify({
           machineId: formData.machineId,
           shift: formData.shift,
@@ -177,7 +271,9 @@ const ProductionFormSimple: React.FC<ProductionFormSimpleProps> = ({
       if (data.success) {
         toast({
           title: "Sucesso",
-          description: "Registro de produção criado com sucesso"
+          description: isEditing 
+            ? "Registro de produção atualizado com sucesso"
+            : "Registro de produção criado com sucesso"
         });
         
         // Resetar formulário

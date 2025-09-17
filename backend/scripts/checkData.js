@@ -4,7 +4,11 @@ const ProductionRecord = require('../models/ProductionRecord');
 const User = require('../models/User');
 require('dotenv').config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://orlanddouglas_db_user:TqtwMu2HTPBszmv7@banco.asm5oa1.mongodb.net/oee_monitor?retryWrites=true&w=majority&appName=Banco';
+if (!process.env.MONGODB_URI) {
+  console.error('❌ MONGODB_URI não está definida no arquivo .env');
+  process.exit(1);
+}
+const MONGODB_URI = process.env.MONGODB_URI;
 
 async function checkData() {
   try {

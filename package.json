@@ -12,7 +12,14 @@
     "preview": "vite preview",
     "preview:prod": "vite preview --mode production",
     "type-check": "tsc --noEmit",
-    "deploy:build": "npm run type-check && npm run lint && npm run build:prod"
+    "deploy:build": "npm run type-check && npm run lint && npm run build:prod",
+    "deploy:prod": "npm run deploy:build && npm run deploy:upload",
+    "deploy:upload": "echo 'Upload para servidor VPS - configurar rsync ou FTP'",
+    "analyze": "npm run build:prod && npx vite-bundle-analyzer dist",
+    "clean": "rm -rf dist node_modules/.vite",
+    "serve:prod": "npm run build:prod && npm run preview:prod",
+     "deploy": "git pull && npm install && npm run build && pm2 restart all",
+    "health:check": "curl -f https://planing-ita.com/api/health || exit 1"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -80,6 +87,7 @@
     "lovable-tagger": "^1.1.9",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
+    "terser": "^5.44.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19"

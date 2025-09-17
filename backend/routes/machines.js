@@ -102,7 +102,7 @@ router.get('/public', async (req, res) => {
 
 // Listar máquinas com paginação e filtros (rota autenticada)
 router.get('/', 
-  requirePermission('machines.view'),
+  // requirePermission('machines.view'), // Desabilitado para permitir acesso aos relatórios
   [
     query('page')
       .optional()

@@ -21,13 +21,17 @@ import {
   Users,
   Calendar,
   BarChart3,
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  MoreVertical
 } from 'lucide-react';
 import { Production as ProductionType, Machine } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/config/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import Pagination from '@/components/Pagination';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 interface ProductionRecord {
   _id: string;
@@ -96,6 +100,20 @@ const Production: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Estados de paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Estados do dialog de confirmação
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+    recordId: ''
+  });
+
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -111,53 +129,84 @@ const Production: React.FC = () => {
   };
 
   // Carregar dados de produção
-  const loadProductionRecords = async (loadAll = false) => {
+  const loadProductionRecords = async (loadAll = false, page = currentPage) => {
     try {
       console.log('🔄 Carregando registros de produção...');
       console.log('📅 Data selecionada:', selectedDate);
       console.log('🕐 Turno selecionado:', selectedShift);
       console.log('📋 Carregar todos:', loadAll);
+      console.log('📄 Página:', page);
       
       setIsLoading(true);
       
+      let endpoint;
       let params;
+      
       if (loadAll) {
-        // Carregar todos os registros sem filtro de data
+        // Usar rota /recent para carregar registros mais recentes sem filtro de data
+        endpoint = '/production/recent';
         params = new URLSearchParams({
-          limit: '1000'
+          limit: '100'
         });
-        console.log('🌍 Carregando TODOS os registros da base');
+        console.log('🌍 Carregando registros mais recentes da base');
       } else {
-        // Carregar apenas da data selecionada
-        const startDate = new Date(selectedDate + 'T00:00:00.000Z');
-        const endDate = new Date(selectedDate + 'T23:59:59.999Z');
+        // Verificar se é a data de hoje - se for, usar /recent, senão usar filtro de data
+        const today = new Date().toISOString().split('T')[0];
         
-        console.log('🕐 Data de início (UTC):', startDate.toISOString());
-        console.log('🕐 Data de fim (UTC):', endDate.toISOString());
+        if (selectedDate === today) {
+          // Data de hoje - usar rota /recent para mostrar os mais recentes
+          endpoint = '/production/recent';
+          params = new URLSearchParams({
+            limit: itemsPerPage.toString()
+          });
+          console.log('📅 Data de hoje - carregando registros mais recentes');
+        } else {
+          // Data específica - usar filtro de data com paginação
+          endpoint = '/production';
+          const startDate = new Date(selectedDate + 'T00:00:00.000Z');
+          const endDate = new Date(selectedDate + 'T23:59:59.999Z');
+          
+          console.log('🕐 Data de início (UTC):', startDate.toISOString());
+          console.log('🕐 Data de fim (UTC):', endDate.toISOString());
 
-        params = new URLSearchParams({
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          limit: '1000'
-        });
+          params = new URLSearchParams({
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            page: page.toString(),
+            limit: itemsPerPage.toString()
+          });
+        }
       }
 
       if (selectedShift !== 'all') {
         params.append('shift', selectedShift);
       }
 
-      console.log('🔗 URL da requisição:', `/production?${params.toString()}`);
+      const url = `${endpoint}?${params.toString()}`;
+      console.log('🔗 URL da requisição:', url);
       
-      const data = await apiRequest(`/production?${params.toString()}`);
+      const data = await apiRequest(url);
 
       console.log('📊 Resposta da API:', data);
       console.log('📈 Número de registros:', data.data?.records?.length || 0);
 
       if (data.success) {
         setProductionRecords(data.data.records || []);
-        setTotalRecords(data.data.pagination?.total || data.data.records?.length || 0);
+        const total = data.data.total || data.data.pagination?.total || data.data.records?.length || 0;
+        setTotalRecords(total);
+        
+        // Calcular total de páginas
+        const pages = Math.ceil(total / itemsPerPage);
+        setTotalPages(pages);
+        
         console.log('✅ Registros carregados com sucesso:', data.data.records?.length || 0);
-        console.log('📊 Total de registros na base:', data.data.pagination?.total || data.data.records?.length || 0);
+        console.log('📊 Total de registros na base:', total);
+        console.log('📄 Total de páginas:', pages);
+        
+        // Mostrar mensagem se estiver usando registros recentes
+        if (endpoint === '/production/recent' && data.data.message) {
+          console.log('ℹ️', data.data.message);
+        }
       } else {
         console.error('❌ Erro na resposta da API:', data.message);
         throw new Error(data.message || 'Erro ao carregar registros');
@@ -178,10 +227,57 @@ const Production: React.FC = () => {
 
 
 
+  // Função para lidar com mudança de página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    loadProductionRecords(false, page);
+  };
+
+  // Função para editar registro
+  const handleEditRecord = (record: ProductionRecord) => {
+    setEditingRecord(record);
+    setIsAddDialogOpen(true);
+  };
+
+  // Função para excluir registro
+  const handleDeleteRecord = (recordId: string, machineName?: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Excluir Registro de Produção',
+      description: `Tem certeza que deseja excluir este registro de produção${machineName ? ` da ${machineName}` : ''}? Esta ação não pode ser desfeita.`,
+      onConfirm: () => confirmDeleteRecord(recordId),
+      recordId
+    });
+  };
+
+  // Função que executa a exclusão após confirmação
+  const confirmDeleteRecord = async (recordId: string) => {
+    try {
+      await apiRequest(`/production/${recordId}`, {
+        method: 'DELETE'
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Registro de produção excluído com sucesso",
+      });
+
+      // Recarregar dados
+      await loadProductionRecords(false, currentPage);
+    } catch (error) {
+      console.error('Erro ao excluir registro:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir registro de produção",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Atualizar dados
   const refreshData = async () => {
     setIsRefreshing(true);
-    await loadProductionRecords();
+    await loadProductionRecords(false, currentPage);
     setIsRefreshing(false);
   };
 
@@ -192,7 +288,9 @@ const Production: React.FC = () => {
     
     if (user) {
       console.log('✅ Usuário autenticado, carregando registros...');
-      loadProductionRecords();
+      // Resetar para página 1 quando filtros mudarem
+      setCurrentPage(1);
+      loadProductionRecords(false, 1);
     } else {
       console.log('❌ Usuário não autenticado');
     }
@@ -225,33 +323,46 @@ const Production: React.FC = () => {
           </p>
         </div>
         
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) {
+            setEditingRecord(null);
+            setShowValidationErrors(false);
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
               Novo Registro
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Novo Registro de Produção</DialogTitle>
+              <DialogTitle>
+                {editingRecord ? 'Editar Registro de Produção' : 'Novo Registro de Produção'}
+              </DialogTitle>
               <DialogDescription>
-                Registre os dados de produção do turno
+                {editingRecord 
+                  ? 'Modifique os dados de produção do registro selecionado'
+                  : 'Registre os dados de produção do turno'
+                }
               </DialogDescription>
             </DialogHeader>
             <ProductionFormSimple 
                   onSuccess={handleAddRecord}
                   showValidationErrors={showValidationErrors}
+                  editingRecord={editingRecord}
                 />
             <DialogFooter>
               <Button variant="outline" onClick={() => {
                 setIsAddDialogOpen(false);
+                setEditingRecord(null);
                 setShowValidationErrors(false);
               }}>
                 Cancelar
               </Button>
               <Button type="submit" form="production-form">
-                Registrar Produção
+                {editingRecord ? 'Atualizar Produção' : 'Registrar Produção'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -394,16 +505,40 @@ const Production: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge className={`${shiftInfo.color} border`}>
-                        <Clock className="h-3 w-3 mr-1" />
-                        {shiftInfo.label}
-                      </Badge>
-                      <Badge variant={record.status === 'approved' ? 'default' : 'secondary'}>
-                        {record.status === 'approved' ? 'Aprovado' : 
-                         record.status === 'completed' ? 'Concluído' : 
-                         record.status === 'draft' ? 'Rascunho' : 'Rejeitado'}
-                      </Badge>
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge className={`${shiftInfo.color} border`}>
+                          <Clock className="h-3 w-3 mr-1" />
+                          {shiftInfo.label}
+                        </Badge>
+                        <Badge variant={record.status === 'approved' ? 'default' : 'secondary'}>
+                          {record.status === 'approved' ? 'Aprovado' : 
+                           record.status === 'completed' ? 'Concluído' : 
+                           record.status === 'draft' ? 'Rascunho' : 'Rejeitado'}
+                        </Badge>
+                      </div>
+                      
+                      {/* Botões de Ação */}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditRecord(record)}
+                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                          title="Editar registro"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => handleDeleteRecord(record._id, record.machine?.name)}
+                           className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                           title="Excluir registro"
+                         >
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
@@ -519,6 +654,32 @@ const Production: React.FC = () => {
           })
         )}
       </div>
+      
+      {/* Componente de Paginação */}
+      {totalPages > 1 && (
+        <div className="mt-6 border-t pt-4">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            totalItems={totalRecords}
+            itemsPerPage={itemsPerPage}
+            showInfo={true}
+          />
+        </div>
+      )}
+      
+      {/* Dialog de Confirmação */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        variant="destructive"
+        onConfirm={confirmDialog.onConfirm}
+      />
     </div>
   );
 };

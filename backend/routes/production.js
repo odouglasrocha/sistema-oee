@@ -39,10 +39,18 @@ router.get('/', authenticateToken, async (req, res) => {
     // Construir filtros
     const filters = {};
     
+    // Se não houver filtros de data, mostrar registros dos últimos 30 dias
     if (startDate && endDate) {
       filters.date = {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
+      };
+    } else if (!startDate && !endDate) {
+      // Filtro padrão: últimos 30 dias
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      filters.date = {
+        $gte: thirtyDaysAgo
       };
     }
     
@@ -79,6 +87,53 @@ router.get('/', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao buscar registros de produção:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET /api/production/recent - Buscar registros mais recentes (sem filtros de data)
+router.get('/recent', authenticateToken, async (req, res) => {
+  try {
+    const {
+      limit = 50,
+      machine,
+      shift,
+      operator,
+      status
+    } = req.query;
+
+    // Construir filtros (sem data)
+    const filters = {};
+    
+    if (machine) filters.machine = machine;
+    if (shift) filters.shift = shift;
+    if (operator) filters.operator = operator;
+    if (status) filters.status = status;
+
+    // Buscar os registros mais recentes
+    const records = await ProductionRecord.find(filters)
+      .populate('machine', 'name code capacity')
+      .populate('operator', 'name email')
+      .populate('createdBy', 'name')
+      .sort({ date: -1, createdAt: -1 })
+      .limit(parseInt(limit));
+
+    const total = await ProductionRecord.countDocuments(filters);
+
+    res.json({
+      success: true,
+      data: {
+        records,
+        total,
+        message: `Exibindo os ${records.length} registros mais recentes`
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao buscar registros recentes:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor',
@@ -281,7 +336,21 @@ router.put('/:id', authenticateToken, async (req, res) => {
     }
 
     // Verificar permissões (apenas criador ou admin pode editar)
-    if (record.createdBy.toString() !== req.user.id && !req.user.roles.includes('admin')) {
+    // Buscar o role do usuário para verificar permissões
+    const user = await User.findById(req.user.id).populate('role');
+    
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não encontrado'
+      });
+    }
+    
+    const isCreator = record.createdBy.toString() === req.user.id;
+    const isAdmin = user.role && (user.role.name === 'administrador');
+    const hasEditPermission = user.role && user.role.permissions.includes('production.edit');
+    
+    if (!isCreator && !isAdmin && !hasEditPermission) {
       return res.status(403).json({
         success: false,
         message: 'Sem permissão para editar este registro'
@@ -361,7 +430,21 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     }
 
     // Verificar permissões (apenas criador ou admin pode excluir)
-    if (record.createdBy.toString() !== req.user.id && !req.user.roles.includes('admin')) {
+    // Buscar o role do usuário para verificar permissões
+    const user = await User.findById(req.user.id).populate('role');
+    
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não encontrado'
+      });
+    }
+    
+    const isCreator = record.createdBy.toString() === req.user.id;
+    const isAdmin = user.role && (user.role.name === 'administrador');
+    const hasDeletePermission = user.role && user.role.permissions.includes('production.delete');
+    
+    if (!isCreator && !isAdmin && !hasDeletePermission) {
       return res.status(403).json({
         success: false,
         message: 'Sem permissão para excluir este registro'
@@ -478,7 +561,20 @@ router.get('/stats/by-period', authenticateToken, async (req, res) => {
 router.post('/:id/approve', authenticateToken, async (req, res) => {
   try {
     // Verificar se o usuário tem permissão para aprovar
-    if (!req.user.roles.includes('supervisor') && !req.user.roles.includes('admin')) {
+    // Buscar o role do usuário para verificar permissões
+    const user = await User.findById(req.user.id).populate('role');
+    
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não encontrado'
+      });
+    }
+    
+    const isSupervisor = user.role && (user.role.name === 'supervisor');
+    const isAdmin = user.role && (user.role.name === 'administrador');
+    
+    if (!isSupervisor && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'Sem permissão para aprovar registros'

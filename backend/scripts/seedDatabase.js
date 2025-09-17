@@ -8,7 +8,11 @@ const Role = require('../models/Role');
 const AuditLog = require('../models/AuditLog');
 
 // Configuração do banco de dados
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://orlanddouglas_db_user:TqtwMu2HTPBszmv7@banco.asm5oa1.mongodb.net/oee_monitor?retryWrites=true&w=majority&appName=Banco';
+if (!process.env.MONGODB_URI) {
+  console.error('❌ MONGODB_URI não está definida no arquivo .env');
+  process.exit(1);
+}
+const MONGODB_URI = process.env.MONGODB_URI;
 
 // Dados dos perfis
 const rolesData = [

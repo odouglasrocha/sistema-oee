@@ -159,8 +159,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const token = localStorage.getItem('oee-token');
         
         if (!token) {
-          console.log('🔍 Nenhum token encontrado, iniciando login automático...');
-          await autoLogin();
+          console.log('⚠️ Nenhum token encontrado, aguardando autenticação...');
+          setUser(null);
+          setError(null);
           return;
         }
 
@@ -177,22 +178,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               setError(null);
               console.log('✅ Usuário autenticado com sucesso:', data.user.email);
             } catch (verifyError) {
-              console.log('⚠️ Verificação falhou, fazendo novo login...');
+              console.log('⚠️ Verificação falhou, removendo tokens...');
               localStorage.removeItem('oee-token');
               localStorage.removeItem('oee-refresh-token');
-              await autoLogin();
+              setUser(null);
+              setError('Sessão expirada');
             }
           } else {
-            console.log('⚠️ Token expirado, fazendo novo login...');
+            console.log('⚠️ Token expirado, removendo tokens...');
             localStorage.removeItem('oee-token');
             localStorage.removeItem('oee-refresh-token');
-            await autoLogin();
+            setUser(null);
+            setError('Token expirado');
           }
         } catch (tokenError) {
-          console.log('⚠️ Token inválido, fazendo novo login...');
+          console.log('⚠️ Token inválido, removendo tokens...');
           localStorage.removeItem('oee-token');
           localStorage.removeItem('oee-refresh-token');
-          await autoLogin();
+          setUser(null);
+          setError('Token inválido');
         }
       } catch (error) {
         console.error('❌ Erro na verificação de autenticação:', error);
@@ -275,17 +279,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     try {
       const refreshToken = localStorage.getItem('oee-refresh-token');
+      const token = localStorage.getItem('oee-token');
       
-      // Tentar fazer logout no servidor
-      await apiRequest('/auth/logout', {
-        method: 'POST',
-        body: JSON.stringify({ refreshToken }),
-      }).catch(() => {
-        // Ignorar erros de logout no servidor
-        console.warn('Erro ao fazer logout no servidor');
-      });
+      // Tentar fazer logout no servidor apenas se houver token válido
+      if (token && refreshToken) {
+        try {
+          await apiRequest('/auth/logout', {
+            method: 'POST',
+            body: JSON.stringify({ refreshToken }),
+          });
+        } catch (logoutError) {
+          // Ignorar silenciosamente erros de logout no servidor
+          // Isso é normal quando o token já expirou ou é inválido
+        }
+      }
     } catch (error) {
-      console.error('Erro no logout:', error);
+      // Ignorar erros gerais de logout
     } finally {
       // Limpar dados locais independentemente do resultado
       setUser(null);

@@ -3,6 +3,12 @@ const User = require('../models/User');
 const Role = require('../models/Role');
 const AuditLog = require('../models/AuditLog');
 
+// Verificar se JWT_SECRET está definido
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET não está definida no arquivo .env');
+  process.exit(1);
+}
+
 // Middleware para autenticar token JWT
 const authenticateToken = async (req, res, next) => {
   try {

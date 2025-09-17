@@ -5,7 +5,11 @@ const User = require('../models/User');
 require('dotenv').config();
 
 // Conectar ao MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://orlanddouglas_db_user:TqtwMu2HTPBszmv7@banco.asm5oa1.mongodb.net/?retryWrites=true&w=majority&appName=Banco';
+if (!process.env.MONGODB_URI) {
+  console.error('❌ MONGODB_URI não está definida no arquivo .env');
+  process.exit(1);
+}
+const MONGODB_URI = process.env.MONGODB_URI;
 
 const seedProductionData = async () => {
   try {
@@ -34,20 +38,18 @@ const seedProductionData = async () => {
     for (const machine of machines) {
       console.log(`🏭 Gerando dados para: ${machine.name}`);
       
-      // Verificar se já tem dados hoje
+      // Forçar criação de novos dados (verificação removida temporariamente)
+      console.log(`  🔄 Criando dados para ${machine.name}...`);
+      
+      // Remover dados existentes para hoje (se houver)
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
       
-      const existingRecord = await ProductionRecord.findOne({
+      await ProductionRecord.deleteMany({
         machine: machine._id,
         date: { $gte: startOfDay, $lt: endOfDay }
       });
-      
-      if (existingRecord) {
-        console.log(`  ⏭️ Máquina ${machine.name} já tem dados hoje`);
-        continue;
-      }
 
       // Gerar dados aleatórios mas realistas
       const baseOEE = 60 + Math.random() * 35; // OEE entre 60-95%

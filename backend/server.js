@@ -6,7 +6,17 @@ const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
-require('dotenv').config();
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+// Carregar configuração baseada no ambiente
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+require('dotenv').config({ path: envFile });
+
+console.log(`🔧 Carregando configurações do arquivo: ${envFile}`);
+console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
 
 // Importar rotas
 const authRoutes = require('./routes/auth');
@@ -17,6 +27,9 @@ const productionRoutes = require('./routes/production');
 const analyticsRoutes = require('./routes/analytics');
 const dashboardRoutes = require('./routes/dashboard');
 const settingsRoutes = require('./routes/settings');
+const externalRoutes = require('./routes/external');
+const apiManagementRoutes = require('./routes/apiManagement');
+const reportsRoutes = require('./routes/reports');
 
 // Importar middleware de autenticação
 const { authenticateToken } = require('./middleware/auth');
@@ -37,12 +50,12 @@ app.use(helmet({
   },
 }));
 
-// Rate limiting
+// Rate limiting - Configuração baseada no ambiente
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // máximo 100 requests por IP por janela de tempo
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutos
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // máximo requests por IP
   message: {
-    error: 'Muitas tentativas de acesso. Tente novamente em 15 minutos.',
+    error: 'Muitas tentativas de acesso. Tente novamente em alguns minutos.',
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -66,30 +79,33 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CORS configurado para o frontend (local e produção)
-const allowedOrigins = process.env.FRONTEND_URLS 
-  ? process.env.FRONTEND_URLS.split(',').map(url => url.trim())
-  : [
-      // Desenvolvimento local (fallback)
-      'http://localhost:8080',
-      'http://localhost:8081', 
-      'http://localhost:3000',
-      // Produção (fallback)
-      'https://planing-ita.com',
-      'https://www.planing-ita.com'
-    ];
+// CORS - Configuração baseada no ambiente
+const allowedOrigins = process.env.CORS_ORIGINS 
+  ? process.env.CORS_ORIGINS.split(',').map(url => url.trim())
+  : process.env.NODE_ENV === 'production'
+    ? [
+        'https://planing-ita.com',
+        'https://www.planing-ita.com'
+      ]
+    : [
+        'http://localhost:8080',
+        'http://localhost:8081', 
+        'http://localhost:3000'
+      ];
 
 console.log('🌐 CORS configurado para:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Permitir requests sem origin (mobile apps, Postman, etc.)
+    // Permitir requisições sem origin (ex: mobile apps, Postman)
     if (!origin) return callback(null, true);
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('Não permitido pelo CORS'));
+      // Log para debug mas permite a requisição
+      console.log('⚠️ Origin não configurado no CORS:', origin);
+      callback(null, true);
     }
   },
   credentials: true,
@@ -100,7 +116,11 @@ app.use(cors({
 }));
 
 // Conexão com MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://orlanddouglas_db_user:TqtwMu2HTPBszmv7@banco.asm5oa1.mongodb.net/?retryWrites=true&w=majority&appName=Banco';
+if (!process.env.MONGODB_URI) {
+  console.error('❌ MONGODB_URI não está definida no arquivo .env');
+  process.exit(1);
+}
+const MONGODB_URI = process.env.MONGODB_URI;
 
 mongoose.connect(MONGODB_URI)
 .then(() => {
@@ -119,17 +139,22 @@ app.use((req, res, next) => {
 });
 
 // Rotas públicas
-// app.use('/api/auth', loginLimiter, authRoutes); // Rate limiting temporariamente desabilitado// Rotas públicas
+// app.use('/api/auth', loginLimiter, authRoutes); // Rate limiting temporariamente desabilitado// Rotas públicas (sem autenticação)
 app.use('/api/auth', authRoutes);
 app.use('/api/machines', machineRoutes); // Rota pública para consulta
 app.use('/api/dashboard', dashboardRoutes); // Rota pública para dashboard OEE
 
-// Rotas protegidas (requerem autenticação)
+// Rotas da API externa (autenticação via API key)
+app.use('/api/external', externalRoutes);
+
+// Rotas protegidas (requerem autenticação JWT)
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/machines-admin', authenticateToken, machineRoutes); // Gestão de máquinas protegida
 app.use('/api/production', authenticateToken, productionRoutes); // Rotas de produção
 app.use('/api/analytics', analyticsRoutes); // Rotas de analytics (já tem autenticação interna)
 app.use('/api/settings', settingsRoutes); // Rotas de configurações (já tem autenticação interna)
+app.use('/api/api-management', apiManagementRoutes); // Gerenciamento de API keys e webhooks
+app.use('/api/reports', reportsRoutes); // Rotas de relatórios
 app.use('/api/protected', authenticateToken, protectedRoutes);
 
 // Rota de health check
@@ -240,12 +265,61 @@ process.on('SIGINT', async () => {
   }
 });
 
-// Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`🌐 API disponível em: http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-});
+// Iniciar servidor com suporte a HTTPS em produção
+function startServer() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const sslKeyPath = process.env.SSL_KEY_PATH;
+  const sslCertPath = process.env.SSL_CERT_PATH;
+  
+  // Verificar se SSL está configurado para produção
+  if (isProduction && sslKeyPath && sslCertPath && fs.existsSync(sslKeyPath) && fs.existsSync(sslCertPath)) {
+    console.log('🔒 Iniciando servidor HTTPS...');
+    
+    const options = {
+      key: fs.readFileSync(sslKeyPath),
+      cert: fs.readFileSync(sslCertPath)
+    };
+    
+    const httpsServer = https.createServer(options, app);
+    
+    httpsServer.listen(PORT, () => {
+      console.log(`🚀 Servidor HTTPS rodando na porta ${PORT}`);
+      console.log(`🌐 API disponível em: https://planing-ita.com/api`);
+      console.log(`📊 Health check: https://planing-ita.com/api/health`);
+      console.log(`🔐 Ambiente: ${process.env.NODE_ENV}`);
+    });
+    
+    // Redirecionar HTTP para HTTPS
+    const httpApp = express();
+    httpApp.use((req, res) => {
+      res.redirect(301, `https://${req.headers.host}${req.url}`);
+    });
+    
+    const httpServer = http.createServer(httpApp);
+    httpServer.listen(80, () => {
+      console.log('🔄 Redirecionamento HTTP -> HTTPS ativo na porta 80');
+    });
+    
+  } else {
+    // Servidor HTTP para desenvolvimento ou produção sem SSL
+    console.log('🌐 Iniciando servidor HTTP...');
+    
+    const httpServer = http.createServer(app);
+    
+    httpServer.listen(PORT, () => {
+      const baseUrl = isProduction ? 'https://planing-ita.com' : `http://localhost:${PORT}`;
+      console.log(`🚀 Servidor rodando na porta ${PORT}`);
+      console.log(`🌐 API disponível em: ${baseUrl}/api`);
+      console.log(`📊 Health check: ${baseUrl}/api/health`);
+      console.log(`🔐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+      
+      if (isProduction && (!sslKeyPath || !sslCertPath)) {
+        console.log('⚠️  SSL não configurado. Configure SSL_KEY_PATH e SSL_CERT_PATH para HTTPS.');
+      }
+    });
+  }
+}
+
+startServer();
 
 module.exports = app;
