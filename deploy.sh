@@ -218,14 +218,14 @@ server {
         root /var/www/sistema-oee/dist;
         try_files \$uri \$uri/ /index.html;
         
-        # Headers de cache para assets estáticos
+        # Cabeçalhos de cache para recursos estáticos
         location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg)\$ {
             expires 1y;
             add_header Cache-Control \"public, immutable\";
         }
     }
 
-    # Proxy para API do backend
+    # Proxy para a API do backend
     location /api/ {
         proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
@@ -238,7 +238,7 @@ server {
         proxy_cache_bypass \$http_upgrade;
     }
 
-    # Logs
+    # Arquivos de log
     access_log /var/log/nginx/planing-ita.com.access.log;
     error_log /var/log/nginx/planing-ita.com.error.log;
 }

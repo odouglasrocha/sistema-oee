@@ -150,14 +150,21 @@ router.get('/',
           .lean(),
         User.countDocuments(filters)
       ]);
-      
+
+      // Mapear _id para id para compatibilidade com o frontend
+      const mappedUsers = users.map(user => ({
+        ...user,
+        id: user._id.toString(),
+        _id: user._id.toString()
+      }));
+
       // Calcular metadados de paginação
       const totalPages = Math.ceil(total / parseInt(limit));
       const hasNextPage = parseInt(page) < totalPages;
       const hasPrevPage = parseInt(page) > 1;
-      
+
       res.json({
-        users,
+        users: mappedUsers,
         pagination: {
           currentPage: parseInt(page),
           totalPages,
@@ -206,7 +213,14 @@ router.get('/:id',
         });
       }
       
-      res.json({ user });
+      // Mapear _id para id para compatibilidade com o frontend
+      const mappedUser = {
+        ...user.toObject(),
+        id: user._id.toString(),
+        _id: user._id.toString()
+      };
+      
+      res.json({ user: mappedUser });
       
     } catch (error) {
       console.error('Erro ao buscar usuário:', error);
@@ -297,9 +311,16 @@ router.post('/',
         .populate('createdBy', 'name email')
         .select('-password -refreshTokens -twoFactorSecret');
       
+      // Mapear _id para id para compatibilidade com o frontend
+      const mappedUser = {
+        ...createdUser.toObject(),
+        id: createdUser._id.toString(),
+        _id: createdUser._id.toString()
+      };
+      
       res.status(201).json({
         message: 'Usuário criado com sucesso',
-        user: createdUser
+        user: mappedUser
       });
       
     } catch (error) {
@@ -376,17 +397,29 @@ router.put('/:id',
         }
         
         // Verificar se usuário pode atribuir este perfil
-        if (newRole.level >= req.user.role.level) {
+        // Administradores podem atribuir perfis de mesmo nível ou inferior
+        // Outros perfis só podem atribuir perfis de nível inferior
+        const canAssignRole = req.user.role.name === 'administrador' 
+          ? newRole.level <= req.user.role.level
+          : newRole.level < req.user.role.level;
+          
+        if (!canAssignRole) {
           return res.status(403).json({
-            error: 'Você não pode atribuir perfis com nível igual ou superior ao seu',
+            error: 'Você não pode atribuir perfis com nível superior ao seu',
             code: 'INSUFFICIENT_LEVEL'
           });
         }
         
         // Verificar se usuário pode alterar o perfil do usuário atual
-        if (currentUser.role.level >= req.user.role.level && currentUser._id.toString() !== req.user._id.toString()) {
+        // Administradores podem alterar usuários de mesmo nível ou inferior (exceto a si mesmo)
+        // Outros perfis só podem alterar usuários de nível inferior
+        const canEditUser = req.user.role.name === 'administrador' 
+          ? currentUser.role.level <= req.user.role.level && currentUser._id.toString() !== req.user._id.toString()
+          : currentUser.role.level < req.user.role.level;
+          
+        if (!canEditUser) {
           return res.status(403).json({
-            error: 'Você não pode alterar usuários com nível igual ou superior ao seu',
+            error: 'Você não pode alterar usuários com nível superior ao seu',
             code: 'INSUFFICIENT_LEVEL'
           });
         }
@@ -416,9 +449,16 @@ router.put('/:id',
         .populate('updatedBy', 'name email')
         .select('-password -refreshTokens -twoFactorSecret');
       
+      // Mapear _id para id para compatibilidade com o frontend
+      const mappedUser = {
+        ...updatedUser.toObject(),
+        id: updatedUser._id.toString(),
+        _id: updatedUser._id.toString()
+      };
+      
       res.json({
         message: 'Usuário atualizado com sucesso',
-        user: updatedUser
+        user: mappedUser
       });
       
     } catch (error) {
@@ -472,7 +512,13 @@ router.delete('/:id',
       }
       
       // Verificar se usuário pode deletar este usuário
-      if (user.role.level >= req.user.role.level) {
+      // Administradores podem deletar usuários de mesmo nível ou inferior
+      // Outros perfis só podem deletar usuários de nível inferior
+      const canDelete = req.user.role.name === 'administrador' 
+        ? user.role.level <= req.user.role.level
+        : user.role.level < req.user.role.level;
+        
+      if (!canDelete) {
         return res.status(403).json({
           error: 'Você não pode deletar usuários com nível igual ou superior ao seu',
           code: 'INSUFFICIENT_LEVEL'
@@ -549,9 +595,15 @@ router.patch('/:id/status',
       }
       
       // Verificar se usuário pode alterar este usuário
-      if (user.role.level >= req.user.role.level) {
+      // Administradores podem alterar status de usuários de mesmo nível ou inferior (exceto a si mesmo)
+      // Outros perfis só podem alterar usuários de nível inferior
+      const canChangeStatus = req.user.role.name === 'administrador' 
+        ? user.role.level <= req.user.role.level
+        : user.role.level < req.user.role.level;
+        
+      if (!canChangeStatus) {
         return res.status(403).json({
-          error: 'Você não pode alterar usuários com nível igual ou superior ao seu',
+          error: 'Você não pode alterar usuários com nível superior ao seu',
           code: 'INSUFFICIENT_LEVEL'
         });
       }
@@ -628,9 +680,15 @@ router.post('/:id/reset-password',
       }
       
       // Verificar se usuário pode resetar senha deste usuário
-      if (user.role.level >= req.user.role.level && user._id.toString() !== req.user._id.toString()) {
+      // Administradores podem resetar senhas de usuários de mesmo nível ou inferior (exceto a si mesmo)
+      // Outros perfis só podem resetar senhas de usuários de nível inferior
+      const canResetPassword = req.user.role.name === 'administrador' 
+        ? user.role.level <= req.user.role.level && user._id.toString() !== req.user._id.toString()
+        : user.role.level < req.user.role.level;
+        
+      if (!canResetPassword) {
         return res.status(403).json({
-          error: 'Você não pode resetar a senha de usuários com nível igual ou superior ao seu',
+          error: 'Você não pode resetar a senha de usuários com nível superior ao seu',
           code: 'INSUFFICIENT_LEVEL'
         });
       }

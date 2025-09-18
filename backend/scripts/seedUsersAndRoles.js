@@ -29,7 +29,7 @@ const rolesData = [
       'settings.view', 'settings.system', 'settings.security', 'settings.integrations',
       'system.audit_log', 'system.backup', 'system.maintenance', 'system.api_access'
     ],
-    level: 1,
+    level: 10,
     isActive: true
   },
   {
@@ -42,7 +42,7 @@ const rolesData = [
       'analytics.view', 'reports.view', 'reports.create',
       'users.view', 'settings.view'
     ],
-    level: 2,
+    level: 5,
     isActive: true
   },
   {
@@ -53,7 +53,7 @@ const rolesData = [
       'dashboard.view', 'machines.view', 'machines.start', 'machines.stop',
       'production.view', 'production.create', 'analytics.view'
     ],
-    level: 3,
+    level: 1,
     isActive: true
   }
 ];
