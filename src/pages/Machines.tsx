@@ -448,7 +448,7 @@ const Machines: React.FC = () => {
         manufacturer: formData.manufacturer,
         model: formData.model,
         serialNumber: formData.serialNumber,
-        capacity: formData.capacity,
+        // capacity será calculado automaticamente no backend
         location: {
           ...prev.location,
           sector: formData.location.sector,
@@ -496,10 +496,7 @@ const Machines: React.FC = () => {
         manufacturer: dataToValidate.manufacturer,
         model: dataToValidate.model,
         serialNumber: dataToValidate.serialNumber || '',
-        capacity: {
-          value: Number(dataToValidate.capacity.value) || 0,
-          unit: dataToValidate.capacity.unit
-        },
+        // capacity será calculado automaticamente no backend quando houver registros de produção
         location: {
           plant: dataToValidate.location.sector, // Mapear sector para plant
           area: dataToValidate.location.line || 'Área Principal', // Mapear line para area
@@ -638,10 +635,7 @@ const Machines: React.FC = () => {
         manufacturer: newMachine.manufacturer,
         model: newMachine.model,
         serialNumber: newMachine.serialNumber || '',
-        capacity: {
-          value: Number(newMachine.capacity.value) || 0,
-          unit: newMachine.capacity.unit
-        },
+        // capacity será calculado automaticamente no backend quando houver registros de produção
         location: {
           plant: newMachine.location.sector,
           area: newMachine.location.line || 'Área Principal',

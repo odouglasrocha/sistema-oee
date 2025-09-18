@@ -285,6 +285,24 @@ router.post('/', authenticateToken, async (req, res) => {
 
     await productionRecord.save();
 
+    // Calcular e atualizar a capacidade da máquina automaticamente
+    // Fórmula: Capacidade = Meta Calculada ÷ (Tempo Planejado ÷ 60)
+    const metaCalculada = productionTarget || goodProduction; // Usar meta ou produção boa como referência
+    const tempoPlanejadomHoras = (plannedTime || 480) / 60; // Converter minutos para horas
+    const capacidadeCalculada = Math.round(metaCalculada / tempoPlanejadomHoras);
+
+    // Atualizar a capacidade da máquina
+    await Machine.findByIdAndUpdate(machineId, {
+      'capacity.value': capacidadeCalculada,
+      'capacity.unit': 'pcs/h', // Unidade padrão
+      updatedBy: req.user.id
+    });
+
+    console.log(`✅ Capacidade da máquina ${machine.name} atualizada automaticamente:`);
+    console.log(`   Meta Calculada: ${metaCalculada}`);
+    console.log(`   Tempo Planejado: ${plannedTime || 480} min (${tempoPlanejadomHoras} h)`);
+    console.log(`   Capacidade Calculada: ${capacidadeCalculada} pcs/h`);
+
     // Carregar o registro completo com populações
     const savedRecord = await ProductionRecord.findById(productionRecord._id)
       .populate('machine', 'name code capacity')
@@ -380,6 +398,24 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     record.updatedBy = req.user.id;
     await record.save();
+
+    // Recalcular e atualizar a capacidade da máquina automaticamente
+    // Fórmula: Capacidade = Meta Calculada ÷ (Tempo Planejado ÷ 60)
+    const metaCalculada = record.production.target || record.production.good;
+    const tempoPlanejadomHoras = record.time.planned / 60; // Converter minutos para horas
+    const capacidadeCalculada = Math.round(metaCalculada / tempoPlanejadomHoras);
+
+    // Atualizar a capacidade da máquina
+    await Machine.findByIdAndUpdate(record.machine, {
+      'capacity.value': capacidadeCalculada,
+      'capacity.unit': 'pcs/h',
+      updatedBy: req.user.id
+    });
+
+    console.log(`✅ Capacidade da máquina recalculada após atualização do registro:`);
+    console.log(`   Meta Calculada: ${metaCalculada}`);
+    console.log(`   Tempo Planejado: ${record.time.planned} min (${tempoPlanejadomHoras} h)`);
+    console.log(`   Capacidade Recalculada: ${capacidadeCalculada} pcs/h`);
 
     const updatedRecord = await ProductionRecord.findById(record._id)
       .populate('machine', 'name code capacity')

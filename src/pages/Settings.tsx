@@ -24,7 +24,15 @@ import {
   CheckCircle,
   Factory,
   Users,
-  BarChart3
+  BarChart3,
+  MessageCircle,
+  Mail,
+  Smartphone,
+  Users as TeamsIcon,
+  Send,
+  TestTube,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const Settings = () => {
@@ -62,13 +70,53 @@ const Settings = () => {
     loginAttempts: 3
   });
   
-  const [integrationSettings, setIntegrationSettings] = useState({
-    mesIntegration: false,
-    erpIntegration: false,
-    iotSensors: true,
-    apiAccess: true,
-    webhooks: false
+  // Estados para configurações de notificação
+  const [notificationSettings, setNotificationSettings] = useState({
+    whatsapp: {
+      enabled: false,
+      apiKey: '',
+      phoneNumber: '',
+      webhookUrl: ''
+    },
+    email: {
+      enabled: false,
+      provider: 'smtp',
+      smtp: {
+        host: '',
+        port: 587,
+        user: '',
+        password: ''
+      },
+      from: {
+        email: '',
+        name: 'OEE Monitor'
+      }
+    },
+    sms: {
+      enabled: false,
+      provider: 'twilio',
+      twilio: {
+        accountSid: '',
+        authToken: '',
+        fromNumber: ''
+      },
+      authorizedNumbers: []
+    },
+    teams: {
+      enabled: false,
+      webhookUrl: '',
+      channelId: ''
+    },
+    telegram: {
+      enabled: false,
+      botToken: '',
+      chatId: ''
+    }
   });
+  
+  const [testResults, setTestResults] = useState({});
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({});
 
   // Carregar configurações do backend
   const loadSettings = async () => {
@@ -89,7 +137,11 @@ const Settings = () => {
       
       setAlertSettings(data.alertSettings);
       setSecuritySettings(data.securitySettings);
-      setIntegrationSettings(data.integrationSettings);
+      
+      // Carregar configurações de notificação se existirem
+      if (data.notificationSettings) {
+        setNotificationSettings(data.notificationSettings);
+      }
       
     } catch (error) {
       console.error('Erro ao carregar configurações:', error);
@@ -107,6 +159,205 @@ const Settings = () => {
   useEffect(() => {
     loadSettings();
   }, []);
+
+  // Função para validar token do Telegram
+  const validateTelegramToken = async (botToken) => {
+    if (!botToken) return;
+    
+    try {
+      const response = await fetch('/api/notifications/validate/telegram-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('oee-token')}`
+        },
+        body: JSON.stringify({ botToken })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.data.valid) {
+        toast({
+          title: "Token válido",
+          description: `Bot: @${result.data.botInfo.username}`,
+        });
+        return true;
+      } else {
+        toast({
+          title: "Token inválido",
+          description: result.data.error || 'Token do bot não é válido',
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (error) {
+      toast({
+        title: "Erro na validação",
+        description: `Erro ao validar token: ${error.message}`,
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  // Função para validar chat do Telegram
+  const validateTelegramChat = async (botToken, chatId) => {
+    if (!botToken || !chatId) return;
+    
+    try {
+      const response = await fetch('/api/notifications/validate/telegram-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('oee-token')}`
+        },
+        body: JSON.stringify({ botToken, chatId })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.data.valid) {
+        toast({
+          title: "Chat acessível",
+          description: `Chat: ${result.data.chatInfo.title}`,
+        });
+        return true;
+      } else {
+        toast({
+          title: "Chat inacessível",
+          description: result.data.error || 'Bot não tem acesso ao chat',
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (error) {
+      toast({
+        title: "Erro na validação",
+        description: `Erro ao validar chat: ${error.message}`,
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  // Função para testar conexão de um canal
+  const testConnection = async (channel, testData = {}) => {
+    setIsTestingConnection(true);
+    setTestResults(prev => ({ ...prev, [channel]: { status: 'testing', message: 'Testando conexão...' } }));
+    
+    try {
+      // Validação específica para Telegram
+      if (channel === 'telegram') {
+        const { botToken, chatId } = notificationSettings.telegram;
+        
+        if (!botToken || !chatId) {
+          throw new Error('Bot Token e Chat ID são obrigatórios');
+        }
+        
+        // Validar token primeiro
+        const tokenValid = await validateTelegramToken(botToken);
+        if (!tokenValid) {
+          throw new Error('Token do bot inválido');
+        }
+        
+        // Validar acesso ao chat
+        const chatValid = await validateTelegramChat(botToken, chatId);
+        if (!chatValid) {
+          throw new Error('Bot não tem acesso ao chat');
+        }
+      }
+      
+      const response = await fetch(`/api/notifications/test/${channel}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('oee-token')}`
+        },
+        body: JSON.stringify(testData)
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setTestResults(prev => ({ ...prev, [channel]: { status: 'success', message: 'Conexão testada com sucesso!' } }));
+        toast({
+          title: "Teste bem-sucedido",
+          description: `Conexão com ${channel} testada com sucesso!`,
+        });
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      setTestResults(prev => ({ ...prev, [channel]: { status: 'error', message: error.message } }));
+      toast({
+        title: "Erro no teste",
+        description: `Falha ao testar ${channel}: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  // Função para salvar configurações de notificação
+  const saveNotificationSettings = async () => {
+    setIsLoading(true);
+    try {
+      // Validar configurações do Telegram se estiver habilitado
+      if (notificationSettings.telegram.enabled) {
+        const { botToken, chatId } = notificationSettings.telegram;
+        
+        if (!botToken || !chatId) {
+          throw new Error('Bot Token e Chat ID são obrigatórios quando Telegram está habilitado');
+        }
+        
+        // Validar token
+        const tokenValid = await validateTelegramToken(botToken);
+        if (!tokenValid) {
+          throw new Error('Token do bot Telegram é inválido');
+        }
+        
+        // Validar acesso ao chat
+        const chatValid = await validateTelegramChat(botToken, chatId);
+        if (!chatValid) {
+          throw new Error('Bot não tem acesso ao chat especificado');
+        }
+      }
+      
+      const response = await fetch('/api/notifications/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('oee-token')}`
+        },
+        body: JSON.stringify(notificationSettings)
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast({
+          title: "Configurações salvas",
+          description: "Configurações de notificação salvas com sucesso!",
+        });
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar",
+        description: `Erro ao salvar configurações: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Função para alternar visibilidade de senhas
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+  };
 
   const handleSaveSettings = async (section: string) => {
     setIsLoading(true);
@@ -229,22 +480,38 @@ const Settings = () => {
 
       {/* Configurações em Tabs */}
       <Tabs defaultValue="system" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="system" className="flex items-center gap-2">
-            <SettingsIcon className="w-4 h-4" />
-            Sistema
+        <TabsList className="grid w-full grid-cols-8 lg:grid-cols-8">
+          <TabsTrigger value="system" className="flex items-center gap-1 text-xs">
+            <SettingsIcon className="w-3 h-3" />
+            <span className="hidden sm:inline">Geral</span>
           </TabsTrigger>
-          <TabsTrigger value="alerts" className="flex items-center gap-2">
-            <Bell className="w-4 h-4" />
-            Alertas
+          <TabsTrigger value="alerts" className="flex items-center gap-1 text-xs">
+            <Bell className="w-3 h-3" />
+            <span className="hidden sm:inline">Produção</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Segurança
+          <TabsTrigger value="security" className="flex items-center gap-1 text-xs">
+            <Shield className="w-3 h-3" />
+            <span className="hidden sm:inline">Segurança</span>
           </TabsTrigger>
-          <TabsTrigger value="integration" className="flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Integrações
+          <TabsTrigger value="whatsapp" className="flex items-center gap-1 text-xs">
+            <MessageCircle className="w-3 h-3" />
+            <span className="hidden sm:inline">WhatsApp</span>
+          </TabsTrigger>
+          <TabsTrigger value="email" className="flex items-center gap-1 text-xs">
+            <Mail className="w-3 h-3" />
+            <span className="hidden sm:inline">Email</span>
+          </TabsTrigger>
+          <TabsTrigger value="sms" className="flex items-center gap-1 text-xs">
+            <Smartphone className="w-3 h-3" />
+            <span className="hidden sm:inline">SMS</span>
+          </TabsTrigger>
+          <TabsTrigger value="teams" className="flex items-center gap-1 text-xs">
+            <TeamsIcon className="w-3 h-3" />
+            <span className="hidden sm:inline">Teams</span>
+          </TabsTrigger>
+          <TabsTrigger value="telegram" className="flex items-center gap-1 text-xs">
+            <Send className="w-3 h-3" />
+            <span className="hidden sm:inline">Telegram</span>
           </TabsTrigger>
         </TabsList>
 
@@ -606,116 +873,596 @@ const Settings = () => {
           </div>
         </TabsContent>
 
-        {/* Configurações de Integração */}
-        <TabsContent value="integration" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="card-industrial">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="w-5 h-5" />
-                  Sistemas Externos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Integração MES</Label>
-                    <p className="text-sm text-muted-foreground">Manufacturing Execution System</p>
-                  </div>
-                  <Switch
-                    checked={integrationSettings.mesIntegration}
-                    onCheckedChange={(checked) => setIntegrationSettings(prev => ({ ...prev, mesIntegration: checked }))}
-                  />
+        {/* Configurações WhatsApp */}
+        <TabsContent value="whatsapp" className="space-y-6">
+          <Card className="card-industrial">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageCircle className="w-5 h-5" />
+                Configurações WhatsApp
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                Configure integração com WhatsApp Business API
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Ativar WhatsApp</Label>
+                  <p className="text-sm text-muted-foreground">Habilitar notificações via WhatsApp</p>
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Integração ERP</Label>
-                    <p className="text-sm text-muted-foreground">Enterprise Resource Planning</p>
-                  </div>
-                  <Switch
-                    checked={integrationSettings.erpIntegration}
-                    onCheckedChange={(checked) => setIntegrationSettings(prev => ({ ...prev, erpIntegration: checked }))}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Sensores IoT</Label>
-                    <p className="text-sm text-muted-foreground">Internet of Things</p>
-                  </div>
-                  <Switch
-                    checked={integrationSettings.iotSensors}
-                    onCheckedChange={(checked) => setIntegrationSettings(prev => ({ ...prev, iotSensors: checked }))}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-industrial">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Factory className="w-5 h-5" />
-                  API e Webhooks
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Acesso à API</Label>
-                    <p className="text-sm text-muted-foreground">Permitir acesso externo à API</p>
-                  </div>
-                  <Switch
-                    checked={integrationSettings.apiAccess}
-                    onCheckedChange={(checked) => setIntegrationSettings(prev => ({ ...prev, apiAccess: checked }))}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Webhooks</Label>
-                    <p className="text-sm text-muted-foreground">Notificações automáticas</p>
-                  </div>
-                  <Switch
-                    checked={integrationSettings.webhooks}
-                    onCheckedChange={(checked) => setIntegrationSettings(prev => ({ ...prev, webhooks: checked }))}
-                  />
-                </div>
-                
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-medium mb-2">Status das Integrações</h4>
+                <Switch
+                  checked={notificationSettings.whatsapp.enabled}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({
+                    ...prev,
+                    whatsapp: { ...prev.whatsapp, enabled: checked }
+                  }))}
+                />
+              </div>
+              
+              {notificationSettings.whatsapp.enabled && (
+                <>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Sensores IoT:</span>
-                      <Badge variant={integrationSettings.iotSensors ? "default" : "outline"}>
-                        {integrationSettings.iotSensors ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>API Externa:</span>
-                      <Badge variant={integrationSettings.apiAccess ? "default" : "outline"}>
-                        {integrationSettings.apiAccess ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Webhooks:</span>
-                      <Badge variant={integrationSettings.webhooks ? "default" : "outline"}>
-                        {integrationSettings.webhooks ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </div>
+                    <Label htmlFor="whatsapp-apikey">API Key</Label>
+                    <Input
+                      id="whatsapp-apikey"
+                      value={notificationSettings.whatsapp.apiKey}
+                      onChange={(e) => setNotificationSettings(prev => ({
+                        ...prev,
+                        whatsapp: { ...prev.whatsapp, apiKey: e.target.value }
+                      }))}
+                      placeholder="Digite sua API key do WhatsApp"
+                    />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp-phone">Número de Telefone</Label>
+                    <Input
+                      id="whatsapp-phone"
+                      value={notificationSettings.whatsapp.phoneNumber}
+                      onChange={(e) => setNotificationSettings(prev => ({
+                        ...prev,
+                        whatsapp: { ...prev.whatsapp, phoneNumber: e.target.value }
+                      }))}
+                      placeholder="+55 11 99999-9999"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp-webhook">Webhook URL</Label>
+                    <Input
+                      id="whatsapp-webhook"
+                      value={notificationSettings.whatsapp.webhookUrl}
+                      onChange={(e) => setNotificationSettings(prev => ({
+                        ...prev,
+                        whatsapp: { ...prev.whatsapp, webhookUrl: e.target.value }
+                      }))}
+                      placeholder="https://seu-dominio.com/webhook/whatsapp"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      URL para receber webhooks do WhatsApp
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => testConnection('whatsapp', { phoneNumber: notificationSettings.whatsapp.phoneNumber })}
+                      disabled={isTestingConnection}
+                      variant="outline"
+                    >
+                      {isTestingConnection ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <TestTube className="w-4 h-4 mr-2" />}
+                      Testar Conexão
+                    </Button>
+                    
+                    {testResults.whatsapp && (
+                      <Badge variant={testResults.whatsapp.status === 'success' ? 'default' : testResults.whatsapp.status === 'error' ? 'destructive' : 'secondary'}>
+                        {testResults.whatsapp.message}
+                      </Badge>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
           
           <div className="flex justify-end">
-            <Button onClick={() => handleSaveSettings('integrações')} disabled={isLoading}>
+            <Button onClick={saveNotificationSettings} disabled={isLoading}>
               {isLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar Configurações
             </Button>
           </div>
         </TabsContent>
+
+        {/* Configurações Email */}
+        <TabsContent value="email" className="space-y-6">
+          <Card className="card-industrial">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5" />
+                Configurações de Email
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                Configure provedor de email para notificações
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Ativar Email</Label>
+                  <p className="text-sm text-muted-foreground">Habilitar notificações por email</p>
+                </div>
+                <Switch
+                  checked={notificationSettings.email.enabled}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({
+                    ...prev,
+                    email: { ...prev.email, enabled: checked }
+                  }))}
+                />
+              </div>
+              
+              {notificationSettings.email.enabled && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="email-provider">Provedor de Email</Label>
+                    <Select 
+                      value={notificationSettings.email.provider} 
+                      onValueChange={(value) => setNotificationSettings(prev => ({
+                        ...prev,
+                        email: { ...prev.email, provider: value }
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="smtp">SMTP</SelectItem>
+                        <SelectItem value="sendgrid">SendGrid</SelectItem>
+                        <SelectItem value="gmail">Gmail API</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                       <Label htmlFor="smtp-host">Servidor SMTP</Label>
+                       <Input
+                         id="smtp-host"
+                         value={notificationSettings.email.smtp.host}
+                         onChange={(e) => setNotificationSettings(prev => ({
+                           ...prev,
+                           email: { ...prev.email, smtp: { ...prev.email.smtp, host: e.target.value } }
+                         }))}
+                         placeholder="smtp.gmail.com"
+                       />
+                     </div>
+                     
+                     <div className="space-y-2">
+                       <Label htmlFor="smtp-port">Porta</Label>
+                       <Input
+                         id="smtp-port"
+                         value={notificationSettings.email.smtp.port}
+                         onChange={(e) => setNotificationSettings(prev => ({
+                            ...prev,
+                            email: { ...prev.email, smtp: { ...prev.email.smtp, port: e.target.value } }
+                          }))}
+                         placeholder="587"
+                       />
+                     </div>
+                   </div>
+                   
+                   <div className="space-y-2">
+                     <Label htmlFor="smtp-user">Usuário</Label>
+                     <Input
+                       id="smtp-user"
+                       value={notificationSettings.email.smtp.user}
+                       onChange={(e) => setNotificationSettings(prev => ({
+                         ...prev,
+                         email: { ...prev.email, smtp: { ...prev.email.smtp, user: e.target.value } }
+                       }))}
+                       placeholder="usuario@empresa.com"
+                     />
+                   </div>
+                   
+                   <div className="space-y-2">
+                     <Label htmlFor="smtp-password">Senha</Label>
+                     <Input
+                       id="smtp-password"
+                       type="password"
+                       value={notificationSettings.email.smtp.password}
+                       onChange={(e) => setNotificationSettings(prev => ({
+                         ...prev,
+                         email: { ...prev.email, smtp: { ...prev.email.smtp, password: e.target.value } }
+                       }))}
+                       placeholder="Digite a senha"
+                     />
+                   </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email-from">Email Remetente</Label>
+                      <Input
+                        id="email-from"
+                        value={notificationSettings.email.from.email}
+                        onChange={(e) => setNotificationSettings(prev => ({
+                          ...prev,
+                          email: { ...prev.email, from: { ...prev.email.from, email: e.target.value } }
+                        }))}
+                        placeholder="noreply@empresa.com"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="email-name">Nome Remetente</Label>
+                      <Input
+                        id="email-name"
+                        value={notificationSettings.email.from.name}
+                        onChange={(e) => setNotificationSettings(prev => ({
+                          ...prev,
+                          email: { ...prev.email, from: { ...prev.email.from, name: e.target.value } }
+                        }))}
+                        placeholder="OEE Monitor"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => testConnection('email', { email: notificationSettings.email.from.email })}
+                      disabled={isTestingConnection}
+                      variant="outline"
+                    >
+                      {isTestingConnection ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <TestTube className="w-4 h-4 mr-2" />}
+                      Testar Conexão
+                    </Button>
+                    
+                    {testResults.email && (
+                      <Badge variant={testResults.email.status === 'success' ? 'default' : testResults.email.status === 'error' ? 'destructive' : 'secondary'}>
+                        {testResults.email.message}
+                      </Badge>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          
+          <div className="flex justify-end">
+            <Button onClick={saveNotificationSettings} disabled={isLoading}>
+              {isLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Salvar Configurações
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* Configurações SMS */}
+        <TabsContent value="sms" className="space-y-6">
+          <Card className="card-industrial">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="w-5 h-5" />
+                Configurações SMS
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                Configure provedor de SMS para notificações críticas
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Ativar SMS</Label>
+                  <p className="text-sm text-muted-foreground">Habilitar notificações por SMS</p>
+                </div>
+                <Switch
+                  checked={notificationSettings.sms.enabled}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({
+                    ...prev,
+                    sms: { ...prev.sms, enabled: checked }
+                  }))}
+                />
+              </div>
+              
+              {notificationSettings.sms.enabled && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="sms-provider">Provedor SMS</Label>
+                    <Select 
+                      value={notificationSettings.sms.provider} 
+                      onValueChange={(value) => setNotificationSettings(prev => ({
+                        ...prev,
+                        sms: { ...prev.sms, provider: value }
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="twilio">Twilio</SelectItem>
+                        <SelectItem value="infobip">Infobip</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                     <Label htmlFor="twilio-sid">API Key</Label>
+                     <Input
+                       id="twilio-sid"
+                       value={notificationSettings.sms.twilio.accountSid}
+                       onChange={(e) => setNotificationSettings(prev => ({
+                         ...prev,
+                         sms: { ...prev.sms, twilio: { ...prev.sms.twilio, accountSid: e.target.value } }
+                       }))}
+                       placeholder="Digite sua API Key"
+                     />
+                   </div>
+                   
+                   <div className="space-y-2">
+                     <Label htmlFor="twilio-token">API Secret</Label>
+                     <Input
+                       id="twilio-token"
+                       type="password"
+                       value={notificationSettings.sms.twilio.authToken}
+                       onChange={(e) => setNotificationSettings(prev => ({
+                         ...prev,
+                         sms: { ...prev.sms, twilio: { ...prev.sms.twilio, authToken: e.target.value } }
+                       }))}
+                       placeholder="Digite seu API Secret"
+                     />
+                   </div>
+                   
+                   <div className="space-y-2">
+                     <Label htmlFor="twilio-from">Número Remetente</Label>
+                     <Input
+                       id="twilio-from"
+                       value={notificationSettings.sms.twilio.fromNumber}
+                       onChange={(e) => setNotificationSettings(prev => ({
+                         ...prev,
+                         sms: { ...prev.sms, twilio: { ...prev.sms.twilio, fromNumber: e.target.value } }
+                       }))}
+                       placeholder="+55 11 99999-9999"
+                     />
+                     <p className="text-sm text-muted-foreground">
+                       Número configurado no provedor SMS
+                     </p>
+                   </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => testConnection('sms', { phoneNumber: '+5511999999999' })}
+                      disabled={isTestingConnection}
+                      variant="outline"
+                    >
+                      {isTestingConnection ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <TestTube className="w-4 h-4 mr-2" />}
+                      Testar Conexão
+                    </Button>
+                    
+                    {testResults.sms && (
+                      <Badge variant={testResults.sms.status === 'success' ? 'default' : testResults.sms.status === 'error' ? 'destructive' : 'secondary'}>
+                        {testResults.sms.message}
+                      </Badge>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          
+          <div className="flex justify-end">
+            <Button onClick={saveNotificationSettings} disabled={isLoading}>
+              {isLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Salvar Configurações
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* Configurações Teams */}
+        <TabsContent value="teams" className="space-y-6">
+          <Card className="card-industrial">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TeamsIcon className="w-5 h-5" />
+                Configurações Microsoft Teams
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                Configure integração com Microsoft Teams
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Ativar Teams</Label>
+                  <p className="text-sm text-muted-foreground">Habilitar notificações no Microsoft Teams</p>
+                </div>
+                <Switch
+                  checked={notificationSettings.teams.enabled}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({
+                    ...prev,
+                    teams: { ...prev.teams, enabled: checked }
+                  }))}
+                />
+              </div>
+              
+              {notificationSettings.teams.enabled && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="teams-webhook">Webhook URL</Label>
+                    <Input
+                      id="teams-webhook"
+                      value={notificationSettings.teams.webhookUrl}
+                      onChange={(e) => setNotificationSettings(prev => ({
+                        ...prev,
+                        teams: { ...prev.teams, webhookUrl: e.target.value }
+                      }))}
+                      placeholder="https://outlook.office.com/webhook/..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      URL do webhook do canal do Teams
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="teams-channel">ID do Canal (Opcional)</Label>
+                    <Input
+                      id="teams-channel"
+                      value={notificationSettings.teams.channelId}
+                      onChange={(e) => setNotificationSettings(prev => ({
+                        ...prev,
+                        teams: { ...prev.teams, channelId: e.target.value }
+                      }))}
+                      placeholder="19:xxxxxxxx@thread.tacv2"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      ID específico do canal para notificações
+                    </p>
+                  </div>
+                  
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                     <h4 className="font-medium mb-2">⚠️ Como configurar</h4>
+                     <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                       <li>Acesse o canal do Teams desejado</li>
+                       <li>Clique em &quot;...&quot; &gt; &quot;Conectores&quot; &gt; &quot;Webhook de Entrada&quot;</li>
+                       <li>Configure o webhook e copie a URL gerada</li>
+                     </ol>
+                   </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => testConnection('teams')}
+                      disabled={isTestingConnection}
+                      variant="outline"
+                    >
+                      {isTestingConnection ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <TestTube className="w-4 h-4 mr-2" />}
+                      Testar Conexão
+                    </Button>
+                    
+                    {testResults.teams && (
+                      <Badge variant={testResults.teams.status === 'success' ? 'default' : testResults.teams.status === 'error' ? 'destructive' : 'secondary'}>
+                        {testResults.teams.message}
+                      </Badge>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          
+          <div className="flex justify-end">
+            <Button onClick={saveNotificationSettings} disabled={isLoading}>
+              {isLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Salvar Configurações
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* Configurações Telegram */}
+        <TabsContent value="telegram" className="space-y-6">
+          <Card className="card-industrial">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Send className="w-5 h-5" />
+                Configurações Telegram
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                Configure bot do Telegram para notificações
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Ativar Telegram</Label>
+                  <p className="text-sm text-muted-foreground">Habilitar notificações via Telegram</p>
+                </div>
+                <Switch
+                  checked={notificationSettings.telegram.enabled}
+                  onCheckedChange={(checked) => setNotificationSettings(prev => ({
+                    ...prev,
+                    telegram: { ...prev.telegram, enabled: checked }
+                  }))}
+                />
+              </div>
+              
+              {notificationSettings.telegram.enabled && (
+                <>
+                  <div className="space-y-2">
+                      <Label htmlFor="telegram-token">Bot Token</Label>
+                      <Input
+                        id="telegram-token"
+                        value={notificationSettings.telegram.botToken}
+                        onChange={(e) => setNotificationSettings(prev => ({
+                          ...prev,
+                          telegram: { ...prev.telegram, botToken: e.target.value }
+                        }))}
+                        onBlur={(e) => {
+                          if (e.target.value && e.target.value.length > 10) {
+                            validateTelegramToken(e.target.value);
+                          }
+                        }}
+                        placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Token do bot obtido do @BotFather
+                      </p>
+                    </div>
+                   
+                   <div className="space-y-2">
+                     <Label htmlFor="telegram-chat">Chat ID</Label>
+                     <Input
+                       id="telegram-chat"
+                       value={notificationSettings.telegram.chatId}
+                       onChange={(e) => setNotificationSettings(prev => ({
+                         ...prev,
+                         telegram: { ...prev.telegram, chatId: e.target.value }
+                       }))}
+                       onBlur={(e) => {
+                         if (e.target.value && notificationSettings.telegram.botToken) {
+                           validateTelegramChat(notificationSettings.telegram.botToken, e.target.value);
+                         }
+                       }}
+                       placeholder="-100123456789"
+                     />
+                     <p className="text-sm text-muted-foreground">
+                       ID do chat ou grupo para receber notificações
+                     </p>
+                   </div>
+                  
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-medium mb-2">⚠️ Como configurar</h4>
+                    <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                      <li>Crie um bot usando @BotFather no Telegram</li>
+                      <li>Adicione o bot ao grupo desejado</li>
+                      <li>Use @userinfobot para obter o Chat ID</li>
+                    </ol>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => testConnection('telegram', { chatId: notificationSettings.telegram.chatId })}
+                      disabled={isTestingConnection}
+                      variant="outline"
+                    >
+                      {isTestingConnection ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <TestTube className="w-4 h-4 mr-2" />}
+                      Testar Conexão
+                    </Button>
+                    
+                    {testResults.telegram && (
+                      <Badge variant={testResults.telegram.status === 'success' ? 'default' : testResults.telegram.status === 'error' ? 'destructive' : 'secondary'}>
+                        {testResults.telegram.message}
+                      </Badge>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          
+          <div className="flex justify-end">
+            <Button onClick={saveNotificationSettings} disabled={isLoading}>
+              {isLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Salvar Configurações
+            </Button>
+          </div>
+        </TabsContent>
+
+
       </Tabs>
     </div>
   );

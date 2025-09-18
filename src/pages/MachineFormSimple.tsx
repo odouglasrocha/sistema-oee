@@ -15,7 +15,7 @@ interface MachineFormData {
   model: string;
   serialNumber: string;
   status: 'ativa' | 'inativa' | 'manutencao' | 'parada';
-  capacity: {
+  capacity?: {
     value: number | string;
     unit: 'pcs/h' | 'kg/h' | 'l/h' | 'm/h' | 'ton/h' | 'unidades/min';
   };
@@ -67,7 +67,7 @@ const MachineFormSimple: React.FC<MachineFormSimpleProps> = ({
     serialNumber: initialSerialNumber || '', // Usa o número gerado pelo componente pai
     status: 'ativa' as 'ativa',
     capacity: {
-      value: '',
+      value: 0,
       unit: 'pcs/h'
     },
     location: {
@@ -243,49 +243,7 @@ const MachineFormSimple: React.FC<MachineFormSimpleProps> = ({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5" />
-            Capacidade
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="capacity-value">Valor *</Label>
-              <Input
-                id="capacity-value"
-                type="number"
-                min="0"
-                step="0.1"
-                value={formData.capacity.value}
-                onChange={(e) => handleNestedInputChange('capacity', 'value', e.target.value)}
-                placeholder="Ex: 1200"
-                disabled={isSubmitting}
-                autoComplete="off"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="capacity-unit">Unidade *</Label>
-              <Select value={formData.capacity.unit} onValueChange={(value) => handleNestedInputChange('capacity', 'unit', value)} disabled={isSubmitting}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pcs/h">Peças/hora</SelectItem>
-                  <SelectItem value="kg/h">Kg/hora</SelectItem>
-                  <SelectItem value="l/h">Litros/hora</SelectItem>
-                  <SelectItem value="m/h">Metros/hora</SelectItem>
-                  <SelectItem value="ton/h">Toneladas/hora</SelectItem>
-                  <SelectItem value="unidades/min">Unidades/minuto</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
 
       <Card>
         <CardHeader>

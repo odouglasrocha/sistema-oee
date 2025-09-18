@@ -10,6 +10,8 @@
     "test": "jest",
     "seed": "node scripts/seedDatabase.js",
     "seed:prod": "NODE_ENV=production node scripts/seedDatabase.js",
+    "seed:users": "node scripts/seedUsersAndRoles.js",
+    "seed:users:prod": "NODE_ENV=production node scripts/seedUsersAndRoles.js",
     "build": "echo 'Backend build completed'",
     "deploy": "npm run build && npm run start:prod",
     "pm2:start": "pm2 start ecosystem.config.js",

@@ -30,6 +30,7 @@ const settingsRoutes = require('./routes/settings');
 const externalRoutes = require('./routes/external');
 const apiManagementRoutes = require('./routes/apiManagement');
 const reportsRoutes = require('./routes/reports');
+const notificationRoutes = require('./routes/notifications');
 
 // Importar middleware de autenticação
 const { authenticateToken } = require('./middleware/auth');
@@ -155,6 +156,7 @@ app.use('/api/analytics', analyticsRoutes); // Rotas de analytics (já tem auten
 app.use('/api/settings', settingsRoutes); // Rotas de configurações (já tem autenticação interna)
 app.use('/api/api-management', apiManagementRoutes); // Gerenciamento de API keys e webhooks
 app.use('/api/reports', reportsRoutes); // Rotas de relatórios
+app.use('/api/notifications', authenticateToken, notificationRoutes); // Rotas de notificações
 app.use('/api/protected', authenticateToken, protectedRoutes);
 
 // Rota de health check
