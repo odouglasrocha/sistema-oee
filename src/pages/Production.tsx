@@ -817,6 +817,36 @@ const Production: React.FC = () => {
         </div>
       )}
       
+      {/* Dialog de Adicionar Registro */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Registro de Produção</DialogTitle>
+            <DialogDescription>
+              Adicione um novo registro de produção ao sistema
+            </DialogDescription>
+          </DialogHeader>
+          <ProductionFormSimple 
+            onSuccess={() => {
+              setIsAddDialogOpen(false);
+              loadProductionRecords();
+              toast({
+                title: "Sucesso",
+                description: "Registro de produção criado com sucesso!",
+              });
+            }}
+          />
+          <DialogFooter className="flex justify-between">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsAddDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog de Confirmação */}
       <ConfirmDialog
         open={confirmDialog.open}

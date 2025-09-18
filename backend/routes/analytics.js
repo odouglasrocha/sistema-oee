@@ -36,20 +36,111 @@ router.get('/insights', async (req, res) => {
   }
 });
 
+// Buscar insight por ID
+router.get('/insights/:id', async (req, res) => {
+  try {
+    const insight = await AIInsight.findById(req.params.id).populate('machineId', 'name code');
+    
+    if (!insight) {
+      return res.status(404).json({ error: 'Insight não encontrado' });
+    }
+    
+    res.json({
+      success: true,
+      data: insight
+    });
+  } catch (error) {
+    console.error('Erro ao buscar insight:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // Criar novo insight
 router.post('/insights', async (req, res) => {
   try {
-    const insight = new AIInsight(req.body);
+    const insightData = {
+      ...req.body,
+      // Garantir que campos obrigatórios estejam presentes
+      type: req.body.insightType || req.body.type || 'prediction',
+      severity: req.body.severity || 'medium',
+      title: req.body.title || 'Novo Insight',
+      description: req.body.description || '',
+      recommendation: req.body.recommendation || 'Análise necessária',
+      confidence: req.body.confidence || 75,
+      status: req.body.status || 'active'
+    };
+
+    const insight = new AIInsight(insightData);
     await insight.save();
     await insight.populate('machineId', 'name code');
     
     res.status(201).json({
       success: true,
-      data: insight
+      data: insight,
+      message: 'Insight criado com sucesso'
     });
   } catch (error) {
     console.error('Erro ao criar insight:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ 
+      error: error.message,
+      details: error.errors ? Object.keys(error.errors).map(key => ({
+        field: key,
+        message: error.errors[key].message
+      })) : []
+    });
+  }
+});
+
+// Atualizar insight
+router.put('/insights/:id', async (req, res) => {
+  try {
+    const insight = await AIInsight.findByIdAndUpdate(
+      req.params.id,
+      { 
+        ...req.body,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    ).populate('machineId', 'name code');
+    
+    if (!insight) {
+      return res.status(404).json({ error: 'Insight não encontrado' });
+    }
+    
+    res.json({
+      success: true,
+      data: insight,
+      message: 'Insight atualizado com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar insight:', error);
+    res.status(400).json({ 
+      error: error.message,
+      details: error.errors ? Object.keys(error.errors).map(key => ({
+        field: key,
+        message: error.errors[key].message
+      })) : []
+    });
+  }
+});
+
+// Excluir insight
+router.delete('/insights/:id', async (req, res) => {
+  try {
+    const insight = await AIInsight.findByIdAndDelete(req.params.id);
+    
+    if (!insight) {
+      return res.status(404).json({ error: 'Insight não encontrado' });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Insight excluído com sucesso',
+      data: { id: req.params.id }
+    });
+  } catch (error) {
+    console.error('Erro ao excluir insight:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 

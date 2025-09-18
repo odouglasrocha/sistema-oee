@@ -23,7 +23,7 @@ async function testAPI() {
     console.log('✅ Conectado ao MongoDB');
     
     // Buscar um usuário para gerar token
-    const user = await User.findOne({ email: 'admin@oee.com' });
+    const user = await User.findOne({ email: 'admin@oee-monitor.com' });
     if (!user) {
       console.log('❌ Usuário admin não encontrado');
       return;
@@ -39,7 +39,11 @@ async function testAPI() {
         roles: user.roles || ['admin'] 
       },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { 
+        expiresIn: '24h',
+        issuer: 'oee-monitor',
+        audience: 'oee-monitor-users'
+      }
     );
     
     console.log('🔑 Token gerado:', token.substring(0, 50) + '...');

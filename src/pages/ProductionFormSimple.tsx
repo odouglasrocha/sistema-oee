@@ -879,6 +879,24 @@ const ProductionFormSimple: React.FC<ProductionFormSimpleProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Botão de Submissão */}
+      <div className="flex justify-end gap-4 pt-4">
+        <Button
+          type="submit"
+          disabled={isSubmitting || isSubmittingForm}
+          className="min-w-[120px]"
+        >
+          {(isSubmitting || isSubmittingForm) ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              {editingRecord ? 'Atualizando...' : 'Registrando...'}
+            </>
+          ) : (
+            editingRecord ? 'Atualizar Registro' : 'Registrar Produção'
+          )}
+        </Button>
+      </div>
     </form>
   );
 };

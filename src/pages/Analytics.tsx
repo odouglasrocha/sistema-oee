@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import InsightsModal from '@/components/InsightsModal';
 import { 
   Brain, 
   TrendingUp, 
@@ -13,7 +14,8 @@ import {
   Eye,
   PieChart,
   Activity,
-  Lightbulb
+  Lightbulb,
+  Plus
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -104,6 +106,7 @@ const Analytics: React.FC = () => {
   const [selectedInsight, setSelectedInsight] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
   
   // Estados para dados reais
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
@@ -135,16 +138,16 @@ const Analytics: React.FC = () => {
         AnalyticsService.getRadarData('default') // Usar máquina padrão ou primeira disponível
       ]);
       
-      setAiInsights(insightsData);
-      setOpportunities(opportunitiesData);
-      setSchedules(schedulesData);
-      setAlerts(alertsData);
-      setPredictionData(predictionDataRes);
-      setFailurePatterns(failurePatternsData);
-      setMachineRadarData(radarData);
+      setAiInsights(insightsData.data || []);
+      setOpportunities(opportunitiesData || []);
+      setSchedules(schedulesData || []);
+      setAlerts(alertsData || []);
+      setPredictionData(predictionDataRes || []);
+      setFailurePatterns(failurePatternsData || []);
+      setMachineRadarData(radarData || []);
       
       // Se não há dados, gerar dados de exemplo
-      if (insightsData.length === 0 && opportunitiesData.length === 0) {
+      if (insightsData.data.length === 0 && opportunitiesData.length === 0) {
         console.log('📊 Gerando dados de exemplo para Analytics...');
         await AnalyticsService.generateSampleData();
         // Recarregar dados após gerar exemplos
@@ -204,7 +207,7 @@ const Analytics: React.FC = () => {
       await AnalyticsService.applyInsight(insightId);
       // Recarregar insights após aplicar
       const updatedInsights = await AnalyticsService.getInsights({ limit: 10 });
-      setAiInsights(updatedInsights);
+      setAiInsights(updatedInsights.data || []);
     } catch (error) {
       console.error('Erro ao aplicar insight:', error);
     }
@@ -215,7 +218,7 @@ const Analytics: React.FC = () => {
       await AnalyticsService.dismissInsight(insightId);
       // Recarregar insights após descartar
       const updatedInsights = await AnalyticsService.getInsights({ limit: 10 });
-      setAiInsights(updatedInsights);
+      setAiInsights(updatedInsights.data || []);
     } catch (error) {
       console.error('Erro ao descartar insight:', error);
     }
@@ -245,10 +248,19 @@ const Analytics: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-2">
-            <Activity className="h-4 w-4" />
+          <Badge variant="outline" className="text-green-600 border-green-600">
+            <Zap className="w-3 h-3 mr-1" />
             IA Ativa
           </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-blue-600 border-blue-600 hover:bg-blue-50"
+            onClick={() => setShowInsightsModal(true)}
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            Adicionar Insights
+          </Button>
         </div>
       </div>
 
@@ -672,6 +684,13 @@ const Analytics: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Modal de Insights */}
+      <InsightsModal
+        open={showInsightsModal}
+        onOpenChange={setShowInsightsModal}
+        onInsightCreated={loadAnalyticsData}
+      />
     </div>
   );
 };

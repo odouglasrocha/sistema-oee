@@ -1,3 +1,24 @@
+// Constantes para tipos de AI Insight
+export const AI_INSIGHT_TYPES = {
+  PREDICTION: 'prediction',
+  OPTIMIZATION: 'optimization', 
+  PATTERN: 'pattern',
+  ANOMALY: 'anomaly',
+  MAINTENANCE: 'maintenance'
+} as const;
+
+export type AIInsightType = typeof AI_INSIGHT_TYPES[keyof typeof AI_INSIGHT_TYPES];
+
+// Constantes para severidade
+export const AI_INSIGHT_SEVERITY = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  CRITICAL: 'critical'
+} as const;
+
+export type AIInsightSeverity = typeof AI_INSIGHT_SEVERITY[keyof typeof AI_INSIGHT_SEVERITY];
+
 export interface Machine {
   id: string;
   name: string;
@@ -83,8 +104,8 @@ export interface DashboardData {
 
 export interface AIInsight {
   id: string;
-  type: 'prediction' | 'optimization' | 'pattern' | 'anomaly' | 'maintenance';
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  type: AIInsightType;
+  severity: AIInsightSeverity;
   title: string;
   description: string;
   recommendation: string;

@@ -18,7 +18,7 @@ export class AnalyticsService {
     severity?: string;
     machineId?: string;
     limit?: number;
-  }): Promise<AIInsight[]> {
+  }): Promise<{ data: AIInsight[]; total: number }> {
     const params = new URLSearchParams();
     if (filters?.type) params.append('type', filters.type);
     if (filters?.severity) params.append('severity', filters.severity);
@@ -26,6 +26,11 @@ export class AnalyticsService {
     if (filters?.limit) params.append('limit', filters.limit.toString());
     
     const data = await apiRequest(`/analytics/insights?${params.toString()}`);
+    return { data: data.data, total: data.total };
+  }
+
+  static async getInsight(id: string): Promise<AIInsight> {
+    const data = await apiRequest(`/analytics/insights/${id}`);
     return data.data;
   }
   
@@ -35,6 +40,20 @@ export class AnalyticsService {
       body: JSON.stringify(insight)
     });
     return data.data;
+  }
+
+  static async updateInsight(id: string, insight: Partial<AIInsight>): Promise<AIInsight> {
+    const data = await apiRequest(`/analytics/insights/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(insight)
+    });
+    return data.data;
+  }
+
+  static async deleteInsight(id: string): Promise<void> {
+    await apiRequest(`/analytics/insights/${id}`, {
+      method: 'DELETE'
+    });
   }
   
   static async applyInsight(id: string): Promise<AIInsight> {
