@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { 
   Activity, 
   Plus, 
@@ -23,7 +24,11 @@ import {
   BarChart3,
   RefreshCw,
   Trash2,
-  MoreVertical
+  MoreVertical,
+  Settings,
+  Pause,
+  Play,
+  Wifi
 } from 'lucide-react';
 import { Production as ProductionType, Machine } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -100,6 +105,14 @@ const Production: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Estados para configurações do sistema
+  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState(30);
+  const [isOnline, setIsOnline] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<string>('');
+  const [autoRefreshTimer, setAutoRefreshTimer] = useState<NodeJS.Timeout | null>(null);
+
   // Estados de paginação
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
@@ -116,6 +129,80 @@ const Production: React.FC = () => {
 
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Funções para configurações do sistema
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(!autoRefresh);
+  };
+
+  const updateRefreshInterval = (interval: number) => {
+    setRefreshInterval(interval);
+  };
+
+  const handleSaveSettings = () => {
+    // Salvar configurações no localStorage
+    const settings = {
+      autoRefresh,
+      refreshInterval
+    };
+    localStorage.setItem('production-settings', JSON.stringify(settings));
+    
+    setIsConfigDialogOpen(false);
+    
+    toast({
+      title: "Configurações salvas",
+      description: "As configurações foram salvas com sucesso"
+    });
+  };
+
+  // Carregar configurações salvas
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('production-settings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        setAutoRefresh(settings.autoRefresh || false);
+        setRefreshInterval(settings.refreshInterval || 30);
+      } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
+      }
+    }
+  }, []);
+
+  // Efeito para carregamento automático
+  useEffect(() => {
+    if (autoRefresh && user) {
+      const timer = setInterval(() => {
+        refreshData();
+        setLastUpdate(new Date().toLocaleTimeString('pt-BR'));
+      }, refreshInterval * 1000);
+      
+      setAutoRefreshTimer(timer);
+      
+      return () => {
+        if (timer) clearInterval(timer);
+      };
+    } else {
+      if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer);
+        setAutoRefreshTimer(null);
+      }
+    }
+  }, [autoRefresh, refreshInterval, user]);
+
+  // Efeito para detectar status online/offline
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const getShiftInfo = (shift: ProductionType['shift']) => {
     switch (shift) {
@@ -277,8 +364,16 @@ const Production: React.FC = () => {
   // Atualizar dados
   const refreshData = async () => {
     setIsRefreshing(true);
-    await loadProductionRecords(false, currentPage);
-    setIsRefreshing(false);
+    try {
+      await loadProductionRecords(false, currentPage);
+      setLastUpdate(new Date().toLocaleTimeString('pt-BR'));
+      setIsOnline(true);
+    } catch (error) {
+      setIsOnline(false);
+      console.error('Erro ao atualizar dados:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -314,59 +409,112 @@ const Production: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <Activity className="h-8 w-8 text-primary" />
-            Controle de Produção
-          </h1>
+            <h1 className="text-3xl font-bold">Controle de Produção</h1>
+            <div className="flex items-center gap-2">
+              <Wifi className={`h-4 w-4 ${isOnline ? 'text-green-500' : 'text-red-500'}`} />
+              <Badge variant={isOnline ? 'default' : 'destructive'} className="text-xs">
+                {isOnline ? 'Online' : 'Offline'}
+              </Badge>
+            </div>
+          </div>
           <p className="text-muted-foreground mt-1">
-            Registro e acompanhamento da produção por turno
+            Registro e acompanhamento da produção por turno com carregamento automático
           </p>
+          {lastUpdate && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Última atualização: {lastUpdate}
+            </p>
+          )}
         </div>
         
-        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-          setIsAddDialogOpen(open);
-          if (!open) {
-            setEditingRecord(null);
-            setShowValidationErrors(false);
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo Registro
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingRecord ? 'Editar Registro de Produção' : 'Novo Registro de Produção'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingRecord 
-                  ? 'Modifique os dados de produção do registro selecionado'
-                  : 'Registre os dados de produção do turno'
-                }
-              </DialogDescription>
-            </DialogHeader>
-            <ProductionFormSimple 
-                  onSuccess={handleAddRecord}
-                  showValidationErrors={showValidationErrors}
-                  editingRecord={editingRecord}
-                />
-            <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setIsAddDialogOpen(false);
-                setEditingRecord(null);
-                setShowValidationErrors(false);
-              }}>
-                Cancelar
+        <div className="flex items-center gap-2">
+          {/* Botão Atualizar */}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => loadProductionRecords()} 
+            disabled={isLoading || isRefreshing}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading || isRefreshing ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+          {/* Botão de Configurações */}
+          <Dialog open={isConfigDialogOpen} onOpenChange={setIsConfigDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Configurações
               </Button>
-              <Button type="submit" form="production-form">
-                {editingRecord ? 'Atualizar Produção' : 'Registrar Produção'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Configurações do Sistema</DialogTitle>
+                <DialogDescription>
+                  Configure os parâmetros de carregamento automático
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 py-4">
+                {/* Carregamento Automático */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium">Carregamento Automático</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {autoRefresh ? 'Ativo' : 'Pausado'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {autoRefresh ? (
+                      <Pause className="h-4 w-4 text-orange-500" />
+                    ) : (
+                      <Play className="h-4 w-4 text-green-500" />
+                    )}
+                    <Switch
+                       checked={autoRefresh}
+                       onCheckedChange={toggleAutoRefresh}
+                     />
+                  </div>
+                </div>
+
+                {/* Intervalo de Atualização */}
+                <div className="space-y-2">
+                  <Label htmlFor="refresh-interval">Intervalo de Atualização (segundos)</Label>
+                  <Select 
+                    value={refreshInterval.toString()} 
+                    onValueChange={(value) => updateRefreshInterval(parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10 segundos</SelectItem>
+                      <SelectItem value="15">15 segundos</SelectItem>
+                      <SelectItem value="30">30 segundos</SelectItem>
+                      <SelectItem value="60">1 minuto</SelectItem>
+                      <SelectItem value="120">2 minutos</SelectItem>
+                      <SelectItem value="300">5 minutos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button onClick={handleSaveSettings}>
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Botão Novo Registro */}
+          <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Novo Registro
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
