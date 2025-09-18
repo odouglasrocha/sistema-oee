@@ -492,22 +492,35 @@ const Machines: React.FC = () => {
       // Preparar dados para envio mapeando para a estrutura do backend
       const machineData = {
         name: dataToValidate.name,
-        code: dataToValidate.code,
+        code: dataToValidate.code.toUpperCase(), // Backend espera código em maiúsculo
         manufacturer: dataToValidate.manufacturer,
         model: dataToValidate.model,
         serialNumber: dataToValidate.serialNumber || '',
-        // capacity será calculado automaticamente no backend quando houver registros de produção
+        
+        // Capacidade obrigatória - garantir que seja um número válido
+        capacity: {
+          value: Number(dataToValidate.capacity.value) || 1, // Valor mínimo 1 se não especificado
+          unit: dataToValidate.capacity.unit || 'pcs/h' // Unidade padrão
+        },
+        
+        // Localização obrigatória - mapear corretamente
         location: {
-          plant: dataToValidate.location.sector, // Mapear sector para plant
+          plant: dataToValidate.location.sector || 'Planta Principal', // Mapear sector para plant
           area: dataToValidate.location.line || 'Área Principal', // Mapear line para area
           line: dataToValidate.location.line || '',
           position: dataToValidate.location.position || ''
         },
+        
+        // Campos obrigatórios com valores padrão
         category: 'Produção', // Categoria padrão obrigatória
         type: 'Automática', // Tipo padrão obrigatório
+        
+        // Status mapeado corretamente
         status: dataToValidate.status === 'ativa' ? 'Ativa' : 
                 dataToValidate.status === 'inativa' ? 'Inativa' :
                 dataToValidate.status === 'manutencao' ? 'Manutenção' : 'Parada',
+        
+        // Especificações técnicas (opcionais)
         specifications: {
           power: {
             value: Number(dataToValidate.specifications.power) || 0,
@@ -528,17 +541,23 @@ const Machines: React.FC = () => {
             unit: dataToValidate.specifications.dimensions.unit || 'mm'
           }
         },
+        
+        // Manutenção (opcional)
         maintenance: {
           lastMaintenance: dataToValidate.maintenanceSchedule.lastMaintenance ? new Date(dataToValidate.maintenanceSchedule.lastMaintenance) : null,
           nextMaintenance: dataToValidate.maintenanceSchedule.nextMaintenance ? new Date(dataToValidate.maintenanceSchedule.nextMaintenance) : null,
           maintenanceType: 'Preventiva'
         },
+        
+        // Aquisição (opcional)
         acquisition: {
           purchaseDate: dataToValidate.installationDate ? new Date(dataToValidate.installationDate) : null,
           warranty: {
             endDate: dataToValidate.warrantyExpiration ? new Date(dataToValidate.warrantyExpiration) : null
           }
         },
+        
+        // Observações (opcional)
         notes: dataToValidate.notes || ''
       };
       
