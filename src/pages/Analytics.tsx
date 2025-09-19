@@ -580,22 +580,22 @@ const Analytics: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-xs space-y-1">
-                      {opportunity.impact.oee && (
+                      {opportunity.impact?.oee && (
                         <div className="text-primary font-medium">
                           +{opportunity.impact.oee}% OEE
                         </div>
                       )}
-                      {opportunity.impact.availability && (
+                      {opportunity.impact?.availability && (
                         <div className="text-blue-600 font-medium">
                           +{opportunity.impact.availability}% Disponibilidade
                         </div>
                       )}
-                      {opportunity.impact.performance && (
+                      {opportunity.impact?.performance && (
                         <div className="text-green-600 font-medium">
                           +{opportunity.impact.performance}% Performance
                         </div>
                       )}
-                      {opportunity.impact.quality && (
+                      {opportunity.impact?.quality && (
                         <div className="text-purple-600 font-medium">
                           +{opportunity.impact.quality}% Qualidade
                         </div>

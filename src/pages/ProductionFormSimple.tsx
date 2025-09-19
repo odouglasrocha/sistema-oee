@@ -394,36 +394,64 @@ const ProductionFormSimple: React.FC<ProductionFormSimpleProps> = ({
   };
 
   const calculateOEE = () => {
-    const machine = machines.find(m => m._id === formData.machineId);
-    if (!machine || !formData.goodProduction) return { availability: 0, performance: 0, quality: 0, oee: 0, target: 0 };
+    try {
+      const machine = machines.find(m => m._id === formData.machineId);
+      
+      // Validações defensivas
+      if (!machine || !formData.goodProduction || formData.goodProduction <= 0) {
+        return { 
+          availability: 0, 
+          performance: 0, 
+          quality: 0, 
+          oee: 0, 
+          target: 0 
+        };
+      }
 
-    const totalProduction = formData.goodProduction + formData.filmWaste;
-    const totalDowntime = formData.downtimeEntries.reduce((total, entry) => total + (entry.duration || 0), 0);
-    const realTime = formData.plannedTime - totalDowntime; // Tempo real calculado
-    const theoreticalProduction = (realTime / 60) * (machine.capacity?.value || 600);
-    
-    // Disponibilidade: Tempo Real / Tempo Planejado
-    const availability = formData.plannedTime > 0 ? (realTime / formData.plannedTime) * 100 : 0;
-    
-    // Performance: Produção Real / Produção Teórica
-    const performance = theoreticalProduction > 0 ? (totalProduction / theoreticalProduction) * 100 : 0;
-    
-    // Qualidade: Produção Boa / Produção Total
-    const quality = totalProduction > 0 ? (formData.goodProduction / totalProduction) * 100 : 0;
-    
-    // OEE: Disponibilidade × Performance × Qualidade
-    const oee = (availability / 100) * (performance / 100) * (quality / 100) * 100;
-    
-    // Atingimento da Meta: Produção Boa / Meta
-    const targetAchievement = formData.productionTarget > 0 ? (formData.goodProduction / formData.productionTarget) * 100 : 0;
-    
-    return {
-      availability: Math.round(Math.max(0, availability) * 100) / 100,
-      performance: Math.round(Math.max(0, performance) * 100) / 100,
-      quality: Math.round(Math.max(0, quality) * 100) / 100,
-      oee: Math.round(Math.max(0, oee) * 100) / 100,
-      target: Math.round(targetAchievement * 100) / 100
-    };
+      // Validação de dados numéricos com fallbacks seguros
+      const goodProduction = Number(formData.goodProduction) || 0;
+      const filmWaste = Number(formData.filmWaste) || 0;
+      const organicWaste = Number(formData.organicWaste) || 0;
+      const plannedTime = Number(formData.plannedTime) || 480;
+      const productionTarget = Number(formData.productionTarget) || 0;
+      
+      const totalProduction = goodProduction + filmWaste + organicWaste;
+      const totalDowntime = formData.downtimeEntries?.reduce((total, entry) => {
+        return total + (Number(entry?.duration) || 0);
+      }, 0) || 0;
+      
+      const realTime = Math.max(0, plannedTime - totalDowntime);
+      const machineCapacity = Number(machine.capacity?.value) || 600;
+      const theoreticalProduction = (realTime / 60) * machineCapacity;
+      
+      // Cálculos com validações
+      const availability = plannedTime > 0 ? Math.min(100, (realTime / plannedTime) * 100) : 0;
+      const performance = theoreticalProduction > 0 ? Math.min(100, (totalProduction / theoreticalProduction) * 100) : 0;
+      const quality = totalProduction > 0 ? Math.min(100, (goodProduction / totalProduction) * 100) : 0;
+      
+      // OEE com validação de valores válidos
+      const oee = (availability / 100) * (performance / 100) * (quality / 100) * 100;
+      const targetAchievement = productionTarget > 0 ? (goodProduction / productionTarget) * 100 : 0;
+      
+      // Retorno com valores seguros e validados
+      return {
+        availability: Number(Math.max(0, Math.min(100, availability)).toFixed(2)),
+        performance: Number(Math.max(0, Math.min(100, performance)).toFixed(2)),
+        quality: Number(Math.max(0, Math.min(100, quality)).toFixed(2)),
+        oee: Number(Math.max(0, Math.min(100, oee)).toFixed(2)),
+        target: Number(Math.max(0, targetAchievement).toFixed(2))
+      };
+    } catch (error) {
+      console.error('Erro no cálculo de OEE:', error);
+      // Retorno seguro em caso de erro
+      return { 
+        availability: 0, 
+        performance: 0, 
+        quality: 0, 
+        oee: 0, 
+        target: 0 
+      };
+    }
   };
 
   const oeeData = calculateOEE();

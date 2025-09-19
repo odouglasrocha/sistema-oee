@@ -135,11 +135,147 @@ aiInsightSchema.statics.findActive = function(filters = {}) {
 };
 
 // Método para aplicar insight
-aiInsightSchema.methods.apply = function(userId) {
+aiInsightSchema.methods.apply = async function(userId) {
+  const OptimizationOpportunity = require('./OptimizationOpportunity');
+  const OptimizationSchedule = require('./OptimizationSchedule');
+  
   this.status = 'applied';
   this.appliedAt = new Date();
   this.appliedBy = userId;
+  
+  // Criar oportunidade de melhoria baseada no insight
+  if (this.type === 'optimization' || this.type === 'anomaly') {
+    const opportunity = new OptimizationOpportunity({
+      title: this.title,
+      category: this._getCategoryFromInsight(),
+      machineId: this.machineId,
+      currentValue: this._getCurrentValueFromInsight(),
+      potentialValue: this._getPotentialValueFromInsight(),
+      impact: this.metrics || {},
+      difficulty: this._getDifficultyFromSeverity(),
+      priority: this._getPriorityFromSeverity(),
+      estimatedSavings: this.metrics?.estimatedSavings || 0,
+      description: this.description,
+      recommendation: this.recommendation,
+      insightId: this._id,
+      status: 'identified'
+    });
+    
+    await opportunity.save();
+    
+    // Criar cronograma de otimização
+    const currentWeek = this._getCurrentWeek();
+    const schedule = new OptimizationSchedule({
+      week: currentWeek + 1, // Próxima semana
+      year: new Date().getFullYear(),
+      title: `Implementação: ${this.title}`,
+      description: `Implementar melhorias baseadas no insight: ${this.description}`,
+      category: this._getScheduleCategoryFromInsight(),
+      machineIds: [this.machineId],
+      opportunityId: opportunity._id,
+      status: 'planned',
+      priority: this._getPriorityFromSeverity(),
+      startDate: this._getNextWeekDate(),
+      endDate: new Date(this._getNextWeekDate().getTime() + this._getEstimatedDuration() * 24 * 60 * 60 * 1000),
+      responsibleUser: userId,
+      estimatedDuration: this._getEstimatedDuration(),
+      estimatedCost: this.metrics?.estimatedSavings ? this.metrics.estimatedSavings * 0.3 : 1000,
+      expectedROI: this.metrics?.estimatedSavings || 0,
+      insightId: this._id
+    });
+    
+    await schedule.save();
+  }
+  
   return this.save();
+};
+
+// Métodos auxiliares para conversão de dados do insight
+aiInsightSchema.methods._getCategoryFromInsight = function() {
+  if (this.title.toLowerCase().includes('desperdício')) return 'waste_reduction';
+  if (this.title.toLowerCase().includes('oee')) return 'speed';
+  if (this.title.toLowerCase().includes('produção')) return 'speed';
+  if (this.title.toLowerCase().includes('setup')) return 'setup_time';
+  if (this.title.toLowerCase().includes('qualidade')) return 'quality';
+  if (this.title.toLowerCase().includes('manutenção')) return 'maintenance';
+  return 'speed';
+};
+
+aiInsightSchema.methods._getCurrentValueFromInsight = function() {
+  // Extrair valores do insight baseado no tipo
+  if (this.data && this.data.currentOEE) {
+    return { value: this.data.currentOEE, unit: 'percentual' };
+  }
+  if (this.data && this.data.wastePercentage) {
+    return { value: this.data.wastePercentage, unit: 'percentual' };
+  }
+  return { value: 0, unit: 'unidades' };
+};
+
+aiInsightSchema.methods._getPotentialValueFromInsight = function() {
+  const current = this._getCurrentValueFromInsight();
+  if (current.unit === 'percentual') {
+    // Melhoria estimada baseada na severidade
+    const improvement = this.severity === 'high' ? 15 : this.severity === 'medium' ? 10 : 5;
+    return { value: current.value + improvement, unit: current.unit };
+  }
+  return { value: current.value * 0.8, unit: current.unit }; // Redução de 20%
+};
+
+aiInsightSchema.methods._getPriorityFromSeverity = function() {
+  const severityMap = {
+    'critical': 'critical',
+    'high': 'high', 
+    'medium': 'medium',
+    'low': 'low'
+  };
+  return severityMap[this.severity] || 'medium';
+};
+
+aiInsightSchema.methods._getScheduleCategoryFromInsight = function() {
+  if (this.title.toLowerCase().includes('desperdício')) return 'process_improvement';
+  if (this.title.toLowerCase().includes('oee')) return 'speed_optimization';
+  if (this.title.toLowerCase().includes('produção')) return 'speed_optimization';
+  if (this.title.toLowerCase().includes('setup')) return 'setup_reduction';
+  if (this.title.toLowerCase().includes('qualidade')) return 'quality_improvement';
+  if (this.title.toLowerCase().includes('manutenção')) return 'maintenance';
+  return 'process_improvement';
+};
+
+aiInsightSchema.methods._getCurrentWeek = function() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  const diff = now - start;
+  const oneWeek = 1000 * 60 * 60 * 24 * 7;
+  return Math.ceil(diff / oneWeek);
+};
+
+aiInsightSchema.methods._getNextWeekDate = function() {
+  const now = new Date();
+  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return nextWeek;
+};
+
+aiInsightSchema.methods._getEstimatedDuration = function() {
+  // Duração estimada baseada na severidade (em dias)
+  const durationMap = {
+    'critical': 3,
+    'high': 5,
+    'medium': 7,
+    'low': 10
+  };
+  return durationMap[this.severity] || 7;
+};
+
+aiInsightSchema.methods._getDifficultyFromSeverity = function() {
+  // Mapear severidade para dificuldade
+  const difficultyMap = {
+    'critical': 'high',
+    'high': 'high',
+    'medium': 'medium',
+    'low': 'low'
+  };
+  return difficultyMap[this.severity] || 'medium';
 };
 
 // Método para descartar insight
