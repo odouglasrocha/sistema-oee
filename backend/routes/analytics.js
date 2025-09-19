@@ -23,7 +23,9 @@ router.get('/insights', async (req, res) => {
     if (severity) filters.severity = severity;
     if (machineId) filters.machineId = machineId;
     
-    const insights = await AIInsight.findActive(filters).limit(parseInt(limit));
+    const insights = await AIInsight.findActive(filters)
+      .populate('machineId', 'name code')
+      .limit(parseInt(limit));
     
     res.json({
       success: true,

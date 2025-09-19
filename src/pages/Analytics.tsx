@@ -307,6 +307,11 @@ const Analytics: React.FC = () => {
                   </span>
                 </div>
                 <CardTitle className="text-lg">{insight.title}</CardTitle>
+                {insight.machineId && (
+                  <div className="text-sm text-muted-foreground">
+                    Máquina: {typeof insight.machineId === 'object' ? insight.machineId.name || insight.machineId.code : insight.machineId}
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-3">

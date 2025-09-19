@@ -3,7 +3,9 @@ const { body, query, param, validationResult } = require('express-validator');
 const Machine = require('../models/Machine');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
+const AIInsight = require('../models/AIInsight');
 const { requirePermission, auditLog } = require('../middleware/auth');
+const { webhookService, WEBHOOK_EVENTS } = require('../services/webhookService');
 
 const router = express.Router();
 
@@ -328,6 +330,40 @@ router.post('/',
         .populate('responsible.operator', 'name email')
         .populate('responsible.technician', 'name email')
         .populate('responsible.supervisor', 'name email');
+
+      // Disparar webhook para máquina criada
+      try {
+        await webhookService.trigger(WEBHOOK_EVENTS.MACHINE_CREATED, {
+          machineId: createdMachine._id,
+          machine: {
+            id: createdMachine._id,
+            name: createdMachine.name,
+            code: createdMachine.code,
+            type: createdMachine.type,
+            manufacturer: createdMachine.manufacturer,
+            model: createdMachine.model,
+            status: createdMachine.status,
+            location: createdMachine.location
+          },
+          createdBy: {
+            id: req.user._id,
+            name: req.user.name,
+            email: req.user.email
+          },
+          timestamp: new Date().toISOString()
+        });
+      } catch (webhookError) {
+        console.error('Erro ao disparar webhook para máquina criada:', webhookError);
+        // Não falhar a criação da máquina por erro de webhook
+      }
+
+      // Gerar insights iniciais para a máquina
+      try {
+        await generateInitialInsights(createdMachine._id, createdMachine.name);
+      } catch (insightError) {
+        console.error('Erro ao gerar insights iniciais para máquina:', insightError);
+        // Não falhar a criação da máquina por erro de insights
+      }
       
       res.status(201).json({
         message: 'Máquina criada com sucesso',
@@ -361,6 +397,65 @@ router.post('/',
     }
   }
 );
+
+// Função para gerar insights iniciais para uma máquina nova
+async function generateInitialInsights(machineId, machineName) {
+  console.log(`🧠 Gerando insights iniciais para máquina: ${machineName}`);
+  
+  const initialInsights = [
+    {
+      type: 'setup',
+      severity: 'medium',
+      title: 'Configuração Inicial da Máquina',
+      description: `A máquina ${machineName} foi recém-adicionada ao sistema. Recomenda-se configurar parâmetros de produção e estabelecer metas de OEE.`,
+      recommendation: 'Configure os parâmetros de produção, defina metas de OEE e estabeleça cronograma de manutenção preventiva.',
+      confidence: 95,
+      machineId: machineId,
+      metrics: {
+        impactOEE: 0,
+        estimatedSavings: 0
+      },
+      tags: ['configuracao', 'nova-maquina', 'setup', 'inicial']
+    },
+    {
+      type: 'monitoring',
+      severity: 'low',
+      title: 'Monitoramento de Performance Inicial',
+      description: `Inicie o monitoramento de performance da ${machineName} para estabelecer baseline de produtividade.`,
+      recommendation: 'Execute ciclos de produção de teste para coletar dados iniciais de performance e estabelecer métricas de referência.',
+      confidence: 90,
+      machineId: machineId,
+      metrics: {
+        impactOEE: 5,
+        estimatedSavings: 0
+      },
+      tags: ['monitoramento', 'baseline', 'performance', 'inicial']
+    },
+    {
+      type: 'maintenance',
+      severity: 'low',
+      title: 'Cronograma de Manutenção Preventiva',
+      description: `Estabeleça cronograma de manutenção preventiva para a ${machineName} para garantir operação otimizada.`,
+      recommendation: 'Defina intervalos de manutenção preventiva baseados nas especificações do fabricante e condições operacionais.',
+      confidence: 85,
+      machineId: machineId,
+      metrics: {
+        impactOEE: 10,
+        estimatedSavings: 5000
+      },
+      tags: ['manutencao', 'preventiva', 'cronograma', 'inicial']
+    }
+  ];
+
+  try {
+    const createdInsights = await AIInsight.insertMany(initialInsights);
+    console.log(`✅ ${createdInsights.length} insights iniciais criados para ${machineName}`);
+    return createdInsights;
+  } catch (error) {
+    console.error('Erro ao criar insights iniciais:', error);
+    throw error;
+  }
+}
 
 // Atualizar máquina
 router.put('/:id', 

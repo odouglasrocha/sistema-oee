@@ -110,7 +110,7 @@ export interface AIInsight {
   description: string;
   recommendation: string;
   confidence: number; // 0-100%
-  machineId?: string;
+  machineId?: string | Machine;
   data?: any;
   status: 'active' | 'applied' | 'dismissed' | 'expired';
   appliedAt?: Date;
